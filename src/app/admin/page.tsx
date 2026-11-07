@@ -62,7 +62,6 @@ export default function AdminPage() {
   >('apuracao');
 
   const carregarTodosDados = useCallback(async () => {
-    setCarregando(true);
     initializeLocalStorage();
     try {
       const [cfg, cgs, cands, elts, apur] = await Promise.all([
@@ -87,8 +86,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     let ativo = true;
-    const inicializar = async () => {
-      setCarregando(true);
+
+    const carregarInicial = async () => {
       initializeLocalStorage();
       try {
         const [cfg, cgs, cands, elts, apur] = await Promise.all([
@@ -98,7 +97,6 @@ export default function AdminPage() {
           getEleitores(),
           getApuracao(),
         ]);
-
         if (ativo) {
           setConfig(cfg);
           setCargos(cgs);
@@ -107,18 +105,25 @@ export default function AdminPage() {
           setApuracao(apur);
         }
       } catch (e) {
-        console.error('Erro ao carregar dados do admin:', e);
+        console.error('Erro ao inicializar admin:', e);
       } finally {
         if (ativo) setCarregando(false);
       }
     };
 
-    inicializar();
+    carregarInicial();
+
+    const interval = setInterval(() => {
+      if (ativo) {
+        carregarTodosDados();
+      }
+    }, 2500);
 
     return () => {
       ativo = false;
+      clearInterval(interval);
     };
-  }, []);
+  }, [carregarTodosDados]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();

@@ -122,18 +122,44 @@ export async function updateConfiguracao(
   const current = await getConfiguracao();
   const updated: ConfiguracaoEleicao = { ...current, ...config };
 
+  // Atualiza imediatamente o LocalStorage para resposta instantânea
+  setLocal(STORAGE_KEYS.CONFIG, updated);
+
   if (isSupabaseConfigured() && supabase) {
     try {
-      await supabase
+      const payload: Record<string, unknown> = {
+        id: current.id || 'cfg-default',
+        updated_at: new Date().toISOString(),
+        ...config,
+      };
+
+      // 1. Tenta atualizar com todos os campos
+      const { error } = await supabase
         .from('configuracao_eleicao')
-        .update(config)
-        .eq('id', current.id);
+        .update(payload)
+        .eq('id', current.id || 'cfg-default');
+
+      if (error) {
+        console.warn('Aviso no update completo do Supabase:', error.message);
+        // 2. Fallback: se houver erro de coluna inexistente, atualiza os campos fundamentais que sempre existem
+        const safePayload: Record<string, unknown> = {
+          status: updated.status,
+          updated_at: new Date().toISOString(),
+        };
+        if (config.titulo !== undefined) safePayload.titulo = config.titulo;
+        if (config.igreja !== undefined) safePayload.igreja = config.igreja;
+        if (config.codigo_mesario !== undefined) safePayload.codigo_mesario = config.codigo_mesario;
+
+        await supabase
+          .from('configuracao_eleicao')
+          .update(safePayload)
+          .eq('id', current.id || 'cfg-default');
+      }
     } catch (err) {
       console.warn('Erro ao atualizar config no Supabase:', err);
     }
   }
 
-  setLocal(STORAGE_KEYS.CONFIG, updated);
   return updated;
 }
 

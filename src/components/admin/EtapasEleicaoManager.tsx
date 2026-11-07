@@ -76,24 +76,28 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
     onAtualizar();
   };
 
-  const handleLiberarCargo = async (cargoId: string, nomeCargo: string) => {
-    if (
-      confirm(
-        `Liberar a votação na Urna para "${nomeCargo}" agora?\nTodos os eleitores ficarão aptos a votar para esta etapa.`
-      )
-    ) {
-      setSalvando(true);
+  const handleLiberarCargo = async (cargoId: string) => {
+    setSalvando(true);
+    try {
       await liberarVotacaoCargo(cargoId);
-      setSalvando(false);
       onAtualizar();
+    } catch (e) {
+      console.error('Erro ao liberar votação:', e);
+    } finally {
+      setSalvando(false);
     }
   };
 
   const handlePausarUrna = async () => {
     setSalvando(true);
-    await pausarVotacao();
-    setSalvando(false);
-    onAtualizar();
+    try {
+      await pausarVotacao();
+      onAtualizar();
+    } catch (e) {
+      console.error('Erro ao pausar urna:', e);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const handleRevogar = async (nome: string, cargoNome: string) => {
@@ -278,11 +282,11 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => handleLiberarCargo(cargo.id, cargo.nome)}
-                        className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold py-1.5 px-2 rounded-xl text-[10px] uppercase flex items-center justify-center gap-1 transition-all cursor-pointer"
+                        onClick={() => handleLiberarCargo(cargo.id)}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2 px-2 rounded-xl text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 transition-all cursor-pointer"
                       >
-                        <Play className="w-3 h-3" />
-                        <span>Retomar Votação</span>
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>Iniciar / Retomar Votação</span>
                       </button>
                     )}
 
@@ -326,7 +330,7 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
                 {isPendente && (
                   <button
                     type="button"
-                    onClick={() => handleLiberarCargo(cargo.id, cargo.nome)}
+                    onClick={() => handleLiberarCargo(cargo.id)}
                     className="w-full bg-neutral-800 hover:bg-emerald-600 hover:text-white text-emerald-400 border border-neutral-700 hover:border-emerald-500 py-1.5 px-2 rounded-xl text-[10px] font-bold uppercase transition-all cursor-pointer flex items-center justify-center gap-1"
                   >
                     <Play className="w-3 h-3" />

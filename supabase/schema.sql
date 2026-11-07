@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS configuracao_eleicao (
   igreja TEXT NOT NULL DEFAULT 'JUMP',
   subtitulo TEXT DEFAULT 'Escolha com oração e sabedoria a nova diretoria para o próximo mandato',
   status TEXT NOT NULL DEFAULT 'aguardando' CHECK (status IN ('aguardando', 'aberta', 'encerrada')),
+  cargo_ativo_id TEXT NOT NULL DEFAULT 'cargo-presidente',
+  modo_votacao TEXT NOT NULL DEFAULT 'sequencial_um_por_vez',
+  eleitos JSONB DEFAULT '[]'::jsonb,
   exigir_codigo_eleitor BOOLEAN NOT NULL DEFAULT false,
   codigo_mesario TEXT NOT NULL DEFAULT 'jumpelections@2026',
   som_habilitado BOOLEAN NOT NULL DEFAULT true,
@@ -17,6 +20,13 @@ CREATE TABLE IF NOT EXISTS configuracao_eleicao (
   rodadas_tokens JSONB DEFAULT '{}'::jsonb,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+-- Migrações seguras (para caso o banco já tenha sido criado antes)
+ALTER TABLE configuracao_eleicao ADD COLUMN IF NOT EXISTS cargo_ativo_id TEXT DEFAULT 'cargo-presidente';
+ALTER TABLE configuracao_eleicao ADD COLUMN IF NOT EXISTS modo_votacao TEXT DEFAULT 'sequencial_um_por_vez';
+ALTER TABLE configuracao_eleicao ADD COLUMN IF NOT EXISTS eleitos JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE configuracao_eleicao ADD COLUMN IF NOT EXISTS bloqueio_dispositivo BOOLEAN DEFAULT true;
+ALTER TABLE configuracao_eleicao ADD COLUMN IF NOT EXISTS rodadas_tokens JSONB DEFAULT '{}'::jsonb;
 
 -- 2. TABELA DE CARGOS EM DISPUTA (5 CARGOS DA DIRETORIA)
 CREATE TABLE IF NOT EXISTS cargos (
