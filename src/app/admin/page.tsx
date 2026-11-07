@@ -113,15 +113,27 @@ export default function AdminPage() {
 
     carregarInicial();
 
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('eleicoes_jump_realtime_bus');
+      bc.onmessage = () => {
+        carregarTodosDados();
+      };
+    }
+    const handleUpdate = () => carregarTodosDados();
+    window.addEventListener('eleicoes_jump_update', handleUpdate);
+
     const interval = setInterval(() => {
       if (ativo) {
         carregarTodosDados();
       }
-    }, 2500);
+    }, 1500);
 
     return () => {
       ativo = false;
       clearInterval(interval);
+      if (bc) bc.close();
+      window.removeEventListener('eleicoes_jump_update', handleUpdate);
     };
   }, [carregarTodosDados]);
 

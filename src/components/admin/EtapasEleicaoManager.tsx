@@ -56,24 +56,34 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
   const handleProclamar = async (nomeVencedor: string, votos: number, candId?: string) => {
     if (!cargoParaProclamar) return;
 
-    const confirmou = confirm(
-      `Confirma a eleição de ${nomeVencedor} para o cargo de ${cargoParaProclamar.nome}?\n\n` +
-      `⚠️ IMPORTANTE: Esta pessoa será automaticamente DESQUALIFICADA de concorrer nos cargos seguintes (não poderá mais receber votos). ` +
-      `A urna será resetada para que todos os jovens votem para o próximo cargo.`
-    );
-
-    if (!confirmou) return;
-
     setSalvando(true);
-    await proclamarEleitoEAvancar(
-      cargoParaProclamar.id,
-      nomeVencedor,
-      votos,
-      candId
-    );
-    setSalvando(false);
-    setModalProclamar(false);
-    onAtualizar();
+    try {
+      const resultado = await proclamarEleitoEAvancar(
+        cargoParaProclamar.id,
+        nomeVencedor,
+        votos,
+        candId
+      );
+      setModalProclamar(false);
+      onAtualizar();
+
+      if (resultado.proximoCargo) {
+        alert(
+          `🎉 ${nomeVencedor} PROCLAMADO(A) ELEITO(A)!\n\n` +
+          `A eleição para "${resultado.proximoCargo.nome}" foi INICIADA AUTOMATICAMENTE na urna, nos celulares e no telão!`
+        );
+      } else {
+        alert(
+          `🎉 ${nomeVencedor} ELEITO(A)!\n\n` +
+          `Todas as 5 etapas da diretoria foram concluídas com sucesso!`
+        );
+      }
+    } catch (err) {
+      console.error('Erro ao proclamar vencedor:', err);
+      alert('Erro ao proclamar eleito. Tente novamente.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const handleLiberarCargo = async (cargoId: string) => {

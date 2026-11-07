@@ -25,6 +25,7 @@ import {
   initializeLocalStorage,
 } from '@/services/electionService';
 import { playKeyBeep, playUrnaFimSound } from '@/utils/sound';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export const MobileVotingScreen: React.FC = () => {
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
@@ -110,14 +111,48 @@ export const MobileVotingScreen: React.FC = () => {
 
     init();
 
-    // Polling rápido a cada 2 segundos para sincronizar liberação de cargos ou desbloqueios pelo admin
+    // 1. Supabase Realtime para desbloqueio ou troca de cargo instantânea
+    const client = supabase;
+    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
+    if (isSupabaseConfigured() && client) {
+      channel = client
+        .channel('mobile-live-sync')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'configuracao_eleicao' },
+          () => {
+            sincronizar();
+          }
+        )
+        .subscribe();
+    }
+
+    // 2. BroadcastChannel para comunicação instantânea entre abas no mesmo aparelho
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('eleicoes_jump_realtime_bus');
+      bc.onmessage = () => {
+        sincronizar();
+      };
+    }
+    const handleUpdate = () => sincronizar();
+    window.addEventListener('eleicoes_jump_update', handleUpdate);
+
+    // 3. Polling rápido a cada 1.2 segundos para garantir sincronização
     const interval = setInterval(() => {
       sincronizar();
-    }, 2000);
+    }, 1200);
 
     return () => {
       ativo = false;
       clearInterval(interval);
+      if (channel && client) {
+        client.removeChannel(channel);
+      }
+      if (bc) {
+        bc.close();
+      }
+      window.removeEventListener('eleicoes_jump_update', handleUpdate);
     };
   }, []);
 

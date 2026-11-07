@@ -110,6 +110,20 @@ CREATE POLICY "Permitir leitura e insercao de votos" ON votos FOR ALL USING (tru
 CREATE POLICY "Permitir leitura e insercao de dispositivos" ON registro_dispositivos FOR ALL USING (true);
 
 -- ====================================================================
+-- HABILITAR REALTIME NO SUPABASE (WEBSOCKETS PARA ATUALIZAÇÃO INSTANTÂNEA)
+-- ====================================================================
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE votos;
+    ALTER PUBLICATION supabase_realtime ADD TABLE configuracao_eleicao;
+    ALTER PUBLICATION supabase_realtime ADD TABLE registro_dispositivos;
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+-- ====================================================================
 -- DADOS INICIAIS DE EXEMPLO: OS 5 CARGOS DA DIRETORIA
 -- ====================================================================
 

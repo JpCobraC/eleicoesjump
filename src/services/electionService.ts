@@ -25,6 +25,37 @@ const STORAGE_KEYS = {
   DISPOSITIVOS: 'eleicoes_jump_dispositivos_v2',
 };
 
+export const BROADCAST_CHANNEL_NAME = 'eleicoes_jump_realtime_bus';
+
+export function notifyRealtimeChange(tipo: string = 'GERAL') {
+  if (typeof window !== 'undefined') {
+    try {
+      if ('BroadcastChannel' in window) {
+        const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+        bc.postMessage({ type: tipo, timestamp: Date.now() });
+        bc.close();
+      }
+      window.dispatchEvent(
+        new CustomEvent('eleicoes_jump_update', {
+          detail: { type: tipo, timestamp: Date.now() },
+        })
+      );
+    } catch {
+      // noop
+    }
+  }
+}
+
+// Cache rápido em memória para evitar requisições redundantes a cada poll sub-segundo
+let cargosCache: { data: Cargo[]; timestamp: number } | null = null;
+let candidatosCache: { data: Candidato[]; timestamp: number } | null = null;
+const CACHE_TTL_MS = 6000;
+
+export function invalidateElectionCache(): void {
+  cargosCache = null;
+  candidatosCache = null;
+}
+
 export function normalizeName(name: string): string {
   return name
     .normalize('NFD')
@@ -127,8 +158,9 @@ export async function updateConfiguracao(
 
   if (isSupabaseConfigured() && supabase) {
     try {
+      const configId = current.id || 'cfg-default';
       const payload: Record<string, unknown> = {
-        id: current.id || 'cfg-default',
+        id: configId,
         updated_at: new Date().toISOString(),
         ...config,
       };
@@ -137,50 +169,75 @@ export async function updateConfiguracao(
       const { error } = await supabase
         .from('configuracao_eleicao')
         .update(payload)
-        .eq('id', current.id || 'cfg-default');
+        .eq('id', configId);
 
       if (error) {
         console.warn('Aviso no update completo do Supabase:', error.message);
-        // 2. Fallback: se houver erro de coluna inexistente, atualiza os campos fundamentais que sempre existem
+        // 2. Fallback: tenta atualizar com os campos seguros, incluindo cargo_ativo_id e status
         const safePayload: Record<string, unknown> = {
           status: updated.status,
           updated_at: new Date().toISOString(),
         };
+        if (config.cargo_ativo_id !== undefined) safePayload.cargo_ativo_id = config.cargo_ativo_id;
+        if (config.eleitos !== undefined) safePayload.eleitos = config.eleitos;
         if (config.titulo !== undefined) safePayload.titulo = config.titulo;
         if (config.igreja !== undefined) safePayload.igreja = config.igreja;
         if (config.codigo_mesario !== undefined) safePayload.codigo_mesario = config.codigo_mesario;
+        if (config.rodadas_tokens !== undefined) safePayload.rodadas_tokens = config.rodadas_tokens;
+        if (config.bloqueio_dispositivo !== undefined) safePayload.bloqueio_dispositivo = config.bloqueio_dispositivo;
 
-        await supabase
+        const { error: safeError } = await supabase
           .from('configuracao_eleicao')
           .update(safePayload)
-          .eq('id', current.id || 'cfg-default');
+          .eq('id', configId);
+
+        if (safeError) {
+          console.warn('Aviso no fallback de update do Supabase:', safeError.message);
+          // Tenta atualizar minimamente status e cargo_ativo_id
+          await supabase
+            .from('configuracao_eleicao')
+            .update({ status: updated.status, updated_at: new Date().toISOString() })
+            .eq('id', configId);
+        }
       }
     } catch (err) {
       console.warn('Erro ao atualizar config no Supabase:', err);
     }
   }
 
+  notifyRealtimeChange('CONFIG');
   return updated;
 }
 
 // ======================== CARGOS ======================== //
 
-export async function getCargos(): Promise<Cargo[]> {
+export async function getCargos(forceRefresh = false): Promise<Cargo[]> {
+  if (!forceRefresh && cargosCache && Date.now() - cargosCache.timestamp < CACHE_TTL_MS) {
+    return cargosCache.data;
+  }
+  let result: Cargo[];
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
         .from('cargos')
         .select('*')
         .order('ordem', { ascending: true });
-      if (!error && data && data.length > 0) return data as Cargo[];
+      if (!error && data && data.length > 0) {
+        result = data as Cargo[];
+        cargosCache = { data: result, timestamp: Date.now() };
+        return result;
+      }
     } catch (err) {
       console.warn('Erro ao carregar cargos do Supabase, usando local:', err);
     }
   }
-  return getLocal<Cargo[]>(STORAGE_KEYS.CARGOS, INITIAL_CARGOS);
+  result = getLocal<Cargo[]>(STORAGE_KEYS.CARGOS, INITIAL_CARGOS);
+  cargosCache = { data: result, timestamp: Date.now() };
+  return result;
 }
 
 export async function salvarCargos(cargos: Cargo[]): Promise<void> {
+  invalidateElectionCache();
   if (isSupabaseConfigured() && supabase) {
     try {
       await supabase.from('cargos').upsert(cargos);
@@ -189,26 +246,36 @@ export async function salvarCargos(cargos: Cargo[]): Promise<void> {
     }
   }
   setLocal(STORAGE_KEYS.CARGOS, cargos);
+  notifyRealtimeChange('CARGOS');
 }
 
 // ======================== CANDIDATOS ======================== //
 
-export async function getCandidatos(): Promise<Candidato[]> {
+export async function getCandidatos(forceRefresh = false): Promise<Candidato[]> {
   let list: Candidato[] = [];
 
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('candidatos')
-        .select('*')
-        .order('numero', { ascending: true });
-      if (!error && data && data.length > 0) list = data as Candidato[];
-    } catch (err) {
-      console.warn('Erro ao carregar candidatos do Supabase, usando local:', err);
-      list = getLocal<Candidato[]>(STORAGE_KEYS.CANDIDATOS, INITIAL_CANDIDATOS);
-    }
+  if (!forceRefresh && candidatosCache && Date.now() - candidatosCache.timestamp < CACHE_TTL_MS) {
+    list = candidatosCache.data;
   } else {
-    list = getLocal<Candidato[]>(STORAGE_KEYS.CANDIDATOS, INITIAL_CANDIDATOS);
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('candidatos')
+          .select('*')
+          .order('numero', { ascending: true });
+        if (!error && data && data.length > 0) {
+          list = data as Candidato[];
+          candidatosCache = { data: list, timestamp: Date.now() };
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar candidatos do Supabase, usando local:', err);
+        list = getLocal<Candidato[]>(STORAGE_KEYS.CANDIDATOS, INITIAL_CANDIDATOS);
+        candidatosCache = { data: list, timestamp: Date.now() };
+      }
+    } else {
+      list = getLocal<Candidato[]>(STORAGE_KEYS.CANDIDATOS, INITIAL_CANDIDATOS);
+      candidatosCache = { data: list, timestamp: Date.now() };
+    }
   }
 
   // Cruza com a lista de eleitos para garantir que inelegibilidade seja aplicada dinamicamente
@@ -232,7 +299,8 @@ export async function getCandidatos(): Promise<Candidato[]> {
 }
 
 export async function salvarCandidato(candidato: Candidato): Promise<void> {
-  const candidatos = await getCandidatos();
+  invalidateElectionCache();
+  const candidatos = await getCandidatos(true);
   const index = candidatos.findIndex((c) => c.id === candidato.id);
   let updated: Candidato[];
 
@@ -252,10 +320,12 @@ export async function salvarCandidato(candidato: Candidato): Promise<void> {
   }
 
   setLocal(STORAGE_KEYS.CANDIDATOS, updated);
+  notifyRealtimeChange('CANDIDATOS');
 }
 
 export async function removerCandidato(id: string): Promise<void> {
-  const candidatos = (await getCandidatos()).filter((c) => c.id !== id);
+  invalidateElectionCache();
+  const candidatos = (await getCandidatos(true)).filter((c) => c.id !== id);
 
   if (isSupabaseConfigured() && supabase) {
     try {
@@ -581,6 +651,7 @@ export async function registrarVoto(
   const votos = getLocal<Voto[]>(STORAGE_KEYS.VOTOS, []);
   votos.push(novoVoto);
   setLocal(STORAGE_KEYS.VOTOS, votos);
+  notifyRealtimeChange('VOTO');
 }
 
 export async function registrarVotosCompletos(
@@ -738,12 +809,13 @@ export async function proclamarEleitoEAvancar(
   const currentIndex = sortedCargos.findIndex((c) => c.id === cargoId);
   const proximoCargo = sortedCargos[currentIndex + 1];
 
-  let novoStatus = config.status;
+  let novoStatus: 'aguardando' | 'aberta' | 'encerrada' = 'aberta';
   let novoCargoAtivoId = config.cargo_ativo_id;
 
   if (proximoCargo) {
     novoCargoAtivoId = proximoCargo.id;
-    novoStatus = 'aguardando';
+    // O usuário solicitou que JÁ INICIE a próxima votação imediatamente!
+    novoStatus = 'aberta';
     // Reseta status de votou para que todos os jovens votem para o próximo cargo!
     await resetarStatusEleitores();
   } else {
@@ -751,11 +823,22 @@ export async function proclamarEleitoEAvancar(
     novoStatus = 'encerrada';
   }
 
+  // Garante inicialização dos tokens de rodada para o próximo cargo
+  const tokensAtuais = { ...(config.rodadas_tokens || {}) };
+  if (proximoCargo && !tokensAtuais[proximoCargo.id]) {
+    tokensAtuais[proximoCargo.id] = 'rodada-1';
+  }
+
+  invalidateElectionCache();
+
   await updateConfiguracao({
     eleitos: eleitosAtuais,
     cargo_ativo_id: novoCargoAtivoId,
     status: novoStatus,
+    rodadas_tokens: tokensAtuais,
   });
+
+  notifyRealtimeChange('PROCLAMADO');
 
   return {
     proximoCargo,
@@ -852,6 +935,8 @@ export async function zerarVotacao(): Promise<void> {
     status: 'aguardando',
     rodadas_tokens: novosTokens,
   });
+
+  invalidateElectionCache();
 
   // Reabilita todos os candidatos
   const candidatos = await getCandidatos();
