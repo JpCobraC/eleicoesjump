@@ -143,18 +143,18 @@ export default function ResultadosPage() {
               eleito: maisRecente,
               candidato: candObj,
               proximoCargo: proxCargo,
-              expiraEm: eleitoEmMs + TEMPO_ESPERA_MS,
+              expiraEm: Date.now() + TEMPO_ESPERA_MS,
             };
           });
 
-          setSegundosRestantes(Math.max(1, Math.ceil((eleitoEmMs + TEMPO_ESPERA_MS - Date.now()) / 1000)));
+          setSegundosRestantes(20);
 
           if (maisRecente.nome !== ultimoVencedorProclamado) {
             setUltimoVencedorProclamado(maisRecente.nome);
             dispararFogos();
           }
         } else {
-          // Já se passaram mais de 40 segundos
+          // Já se passaram mais de 20 segundos
           if (cfg.status === 'aguardando' && cfg.cargo_ativo_id) {
             updateConfiguracao({ status: 'aberta' }).catch(() => {});
           }
@@ -171,16 +171,16 @@ export default function ResultadosPage() {
     }
   }, [ultimoVencedorProclamado, dispararFogos]);
 
-  // Contagem regressiva dos 40 segundos na tela
+  // Contagem regressiva estritamente de 20 segundos na tela
   useEffect(() => {
     if (!eleitoCelebrando) return;
 
     const interval = setInterval(() => {
       const msRestantes = eleitoCelebrando.expiraEm - Date.now();
-      const seg = Math.max(0, Math.ceil(msRestantes / 1000));
+      const seg = Math.min(20, Math.max(0, Math.ceil(msRestantes / 1000)));
       setSegundosRestantes(seg);
 
-      if (msRestantes <= 0) {
+      if (msRestantes <= 0 || seg <= 0) {
         if (eleitoCelebrando.proximoCargo) {
           updateConfiguracao({ status: 'aberta' }).catch(() => {});
         }

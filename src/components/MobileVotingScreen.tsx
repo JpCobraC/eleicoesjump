@@ -349,7 +349,7 @@ export const MobileVotingScreen: React.FC = () => {
           const tempoDecorrido = tempoMobileAgora ? tempoMobileAgora - eleitoEm : 0;
           const emCelebracao = ultimoEleito && tempoDecorrido < 20000;
           const segRestantes = emCelebracao
-            ? Math.max(1, Math.ceil((20000 - tempoDecorrido) / 1000))
+            ? Math.min(20, Math.max(1, Math.ceil((20000 - tempoDecorrido) / 1000)))
             : 0;
 
           if (emCelebracao && ultimoEleito) {
