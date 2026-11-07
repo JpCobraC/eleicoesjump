@@ -1,13 +1,12 @@
 'use client';
 
 import React from 'react';
-import { ApuracaoCargo, ConfiguracaoEleicao, Eleitor } from '@/types/election';
+import { ApuracaoCargo, ConfiguracaoEleicao } from '@/types/election';
 import { Printer, ShieldCheck } from 'lucide-react';
 
 interface BoletimUrnaProps {
   apuracao: ApuracaoCargo[];
   config: ConfiguracaoEleicao | null;
-  eleitores: Eleitor[];
   tipo?: 'bu' | 'zeresima';
 }
 

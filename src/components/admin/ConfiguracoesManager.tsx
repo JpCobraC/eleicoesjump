@@ -66,7 +66,7 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
 
   const handleZerarVotos = async () => {
     const confirmacao1 = confirm(
-      'ATENÇÃO: Deseja ZERAR todos os votos registrados e resetar os eleitores? Esta ação é irreversível e geralmente feita antes de iniciar a votação oficial (Zerésima).'
+      'ATENÇÃO: Deseja ZERAR todos os votos registrados e liberar todos os aparelhos? Esta ação é irreversível e geralmente feita antes de iniciar a votação oficial (Zerésima).'
     );
     if (!confirmacao1) return;
 
@@ -343,8 +343,8 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
               <span>Zerar Votação (Zerésima Oficial)</span>
             </h4>
             <p className="text-xs text-neutral-400 max-w-xl">
-              Esta ação apaga todos os votos registrados no sistema e redefine o status
-              de todos os eleitores para &quot;Apto a Votar&quot;. Deve ser executada antes de
+              Esta ação apaga todos os votos registrados no sistema, reseta os aparelhos
+              e reinicia a votação para o primeiro cargo (Presidente). Deve ser executada antes de
               iniciar a eleição real no culto ou após testes de demonstração.
             </p>
           </div>

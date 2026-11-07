@@ -6,7 +6,6 @@ import {
   Vote,
   FileText,
   Users,
-  UserCheck,
   Settings,
   ChevronLeft,
   Lock,
@@ -20,13 +19,11 @@ import {
   ConfiguracaoEleicao,
   Candidato,
   Cargo,
-  Eleitor,
 } from '@/types/election';
 import {
   getConfiguracao,
   getCargos,
   getCandidatos,
-  getEleitores,
   getApuracao,
   initializeLocalStorage,
 } from '@/services/electionService';
@@ -34,7 +31,6 @@ import {
 import { ApuracaoView } from '@/components/admin/ApuracaoView';
 import { BoletimUrna } from '@/components/admin/BoletimUrna';
 import { CandidatosManager } from '@/components/admin/CandidatosManager';
-import { EleitoresManager } from '@/components/admin/EleitoresManager';
 import { ConfiguracoesManager } from '@/components/admin/ConfiguracoesManager';
 import { EtapasEleicaoManager } from '@/components/admin/EtapasEleicaoManager';
 
@@ -52,30 +48,27 @@ export default function AdminPage() {
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
-  const [eleitores, setEleitores] = useState<Eleitor[]>([]);
   const [apuracao, setApuracao] = useState<ApuracaoCargo[]>([]);
   const [carregando, setCarregando] = useState(false);
 
   // Aba ativa
   const [abaAtiva, setAbaAtiva] = useState<
-    'apuracao' | 'bu' | 'zeresima' | 'candidatos' | 'eleitores' | 'config'
+    'apuracao' | 'bu' | 'zeresima' | 'candidatos' | 'config'
   >('apuracao');
 
   const carregarTodosDados = useCallback(async () => {
     initializeLocalStorage();
     try {
-      const [cfg, cgs, cands, elts, apur] = await Promise.all([
+      const [cfg, cgs, cands, apur] = await Promise.all([
         getConfiguracao(),
         getCargos(),
         getCandidatos(),
-        getEleitores(),
         getApuracao(),
       ]);
 
       setConfig(cfg);
       setCargos(cgs);
       setCandidatos(cands);
-      setEleitores(elts);
       setApuracao(apur);
     } catch (e) {
       console.error('Erro ao carregar dados do admin:', e);
@@ -90,18 +83,16 @@ export default function AdminPage() {
     const carregarInicial = async () => {
       initializeLocalStorage();
       try {
-        const [cfg, cgs, cands, elts, apur] = await Promise.all([
+        const [cfg, cgs, cands, apur] = await Promise.all([
           getConfiguracao(),
           getCargos(),
           getCandidatos(),
-          getEleitores(),
           getApuracao(),
         ]);
         if (ativo) {
           setConfig(cfg);
           setCargos(cgs);
           setCandidatos(cands);
-          setEleitores(elts);
           setApuracao(apur);
         }
       } catch (e) {
@@ -336,19 +327,6 @@ export default function AdminPage() {
 
           <button
             type="button"
-            onClick={() => setAbaAtiva('eleitores')}
-            className={`flex items-center gap-2 py-3 px-3.5 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              abaAtiva === 'eleitores'
-                ? 'border-emerald-500 text-emerald-400 bg-emerald-950/20'
-                : 'border-transparent text-neutral-400 hover:text-neutral-200'
-            }`}
-          >
-            <UserCheck className="w-4 h-4" />
-            <span>Eleitores ({eleitores.length})</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setAbaAtiva('config')}
             className={`flex items-center gap-2 py-3 px-3.5 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
               abaAtiva === 'config'
@@ -375,7 +353,6 @@ export default function AdminPage() {
         {abaAtiva === 'apuracao' && (
           <ApuracaoView
             apuracao={apuracao}
-            eleitores={eleitores}
             config={config}
             onRefresh={carregarTodosDados}
             carregando={carregando}
@@ -386,7 +363,6 @@ export default function AdminPage() {
           <BoletimUrna
             apuracao={apuracao}
             config={config}
-            eleitores={eleitores}
             tipo="bu"
           />
         )}
@@ -395,7 +371,6 @@ export default function AdminPage() {
           <BoletimUrna
             apuracao={apuracao}
             config={config}
-            eleitores={eleitores}
             tipo="zeresima"
           />
         )}
@@ -404,13 +379,6 @@ export default function AdminPage() {
           <CandidatosManager
             candidatos={candidatos}
             cargos={cargos}
-            onAtualizar={carregarTodosDados}
-          />
-        )}
-
-        {abaAtiva === 'eleitores' && (
-          <EleitoresManager
-            eleitores={eleitores}
             onAtualizar={carregarTodosDados}
           />
         )}

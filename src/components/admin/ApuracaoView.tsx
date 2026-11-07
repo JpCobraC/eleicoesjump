@@ -2,12 +2,11 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { ApuracaoCargo, Eleitor, ConfiguracaoEleicao } from '@/types/election';
+import { ApuracaoCargo, ConfiguracaoEleicao } from '@/types/election';
 import { Trophy, Users, Vote, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 interface ApuracaoViewProps {
   apuracao: ApuracaoCargo[];
-  eleitores: Eleitor[];
   config: ConfiguracaoEleicao | null;
   onRefresh: () => void;
   carregando: boolean;
