@@ -149,14 +149,6 @@ export const BoletimUrna: React.FC<BoletimUrnaProps> = ({
                               </span>
                             )}
                           </div>
-                          {candidato.nome_vice && (
-                            <div className="text-[10px] text-neutral-500">
-                              Vice: {candidato.nome_vice}
-                            </div>
-                          )}
-                          <div className="text-[10px] text-neutral-500">
-                            {candidato.chapa}
-                          </div>
                         </td>
                         <td className="py-1.5 text-right font-bold">
                           {isZeresima ? 0 : votos}

@@ -489,9 +489,6 @@ export default function TelaoPage() {
                         <h3 className="text-lg md:text-xl font-black text-white uppercase leading-tight truncate">
                           {candidato.nome}
                         </h3>
-                        <p className="text-xs text-neutral-400 font-semibold mt-0.5 truncate">
-                          {candidato.chapa}
-                        </p>
 
                         {candidato.inelegivel && (
                           <span className="inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded bg-red-950 border border-red-700 text-red-300">
@@ -680,11 +677,6 @@ export default function TelaoPage() {
               <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-white mt-1 drop-shadow-md">
                 {eleitoCelebrando.eleito.nome}
               </h1>
-              {eleitoCelebrando.candidato?.chapa && (
-                <p className="text-sm text-neutral-400 font-semibold mt-1">
-                  {eleitoCelebrando.candidato.chapa}
-                </p>
-              )}
               <div className="inline-block mt-3 px-4 py-1.5 rounded-xl bg-neutral-900 border border-neutral-700 font-mono text-sm font-bold text-emerald-400">
                 {eleitoCelebrando.eleito.votos} VOTOS RECEBIDOS
               </div>

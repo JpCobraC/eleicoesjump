@@ -325,9 +325,6 @@ export default function ResultadosPage() {
                           <h4 className="text-base font-black text-white uppercase leading-snug truncate">
                             {candidato.nome}
                           </h4>
-                          <p className="text-xs text-neutral-400 truncate mt-0.5">
-                            {candidato.chapa}
-                          </p>
 
                           {candidato.inelegivel && (
                             <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded bg-red-950 border border-red-700 text-red-300">
@@ -343,12 +340,6 @@ export default function ResultadosPage() {
                           )}
                         </div>
                       </div>
-
-                      {candidato.descricao && (
-                        <p className="text-xs text-neutral-400 italic mb-4 line-clamp-2">
-                          &quot;{candidato.descricao}&quot;
-                        </p>
-                      )}
                     </div>
 
                     {/* Placar de Votos */}

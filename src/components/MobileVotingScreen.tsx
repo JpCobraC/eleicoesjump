@@ -409,17 +409,9 @@ export const MobileVotingScreen: React.FC = () => {
                       <span className="inline-block px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700 text-emerald-400 font-mono font-black text-xs mb-1">
                         Nº {cand.numero}
                       </span>
-                      <h4 className="text-sm font-black text-white uppercase leading-snug truncate group-hover:text-emerald-300 transition-colors">
+                      <h4 className="text-base font-black text-white uppercase leading-snug truncate group-hover:text-emerald-300 transition-colors">
                         {cand.nome}
                       </h4>
-                      {cand.nome_vice && (
-                        <p className="text-[11px] text-neutral-400 truncate">
-                          Vice: {cand.nome_vice}
-                        </p>
-                      )}
-                      <p className="text-xs text-neutral-400 font-semibold truncate">
-                        {cand.chapa}
-                      </p>
 
                       {cand.inelegivel && (
                         <span className="inline-block mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-950 border border-red-800 text-red-300">
@@ -496,9 +488,6 @@ export const MobileVotingScreen: React.FC = () => {
                   </span>
                   <div className="font-black text-white uppercase text-base leading-tight">
                     {candidatoSelecionado.nome}
-                  </div>
-                  <div className="text-xs text-neutral-400">
-                    {candidatoSelecionado.chapa}
                   </div>
                 </div>
               </div>

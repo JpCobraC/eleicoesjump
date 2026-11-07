@@ -406,9 +406,6 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-neutral-400">
-                            {candidato.chapa}
-                          </div>
                         </div>
                       </div>
 

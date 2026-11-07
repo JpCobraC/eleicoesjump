@@ -167,28 +167,8 @@ export const UrnaScreen: React.FC<UrnaScreenProps> = ({
                 <span className="text-[10px] md:text-xs font-semibold text-neutral-500 block uppercase">
                   Nome:
                 </span>
-                <span className="text-sm md:text-base font-black text-neutral-900 uppercase">
+                <span className="text-base md:text-lg font-black text-neutral-900 uppercase">
                   {candidato.nome}
-                </span>
-              </div>
-
-              {candidato.nome_vice && (
-                <div>
-                  <span className="text-[10px] md:text-xs font-semibold text-neutral-500 block uppercase">
-                    Vice / Co-Líder:
-                  </span>
-                  <span className="text-xs md:text-sm font-bold text-neutral-800 uppercase">
-                    {candidato.nome_vice}
-                  </span>
-                </div>
-              )}
-
-              <div>
-                <span className="text-[10px] md:text-xs font-semibold text-neutral-500 block uppercase">
-                  Chapa / Ministério:
-                </span>
-                <span className="text-xs md:text-sm font-bold text-neutral-800 uppercase">
-                  {candidato.chapa}
                 </span>
               </div>
             </div>

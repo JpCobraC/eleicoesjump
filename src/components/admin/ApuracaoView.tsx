@@ -204,16 +204,6 @@ export const ApuracaoView: React.FC<ApuracaoViewProps> = ({
                                 </span>
                               )}
                             </div>
-
-                            {candidato.nome_vice && (
-                              <div className="text-xs text-neutral-400 mt-0.5">
-                                Vice: <strong className="text-neutral-300">{candidato.nome_vice}</strong>
-                              </div>
-                            )}
-
-                            <div className="text-xs text-emerald-400 font-semibold mt-0.5">
-                              {candidato.chapa}
-                            </div>
                           </div>
                         </div>
 

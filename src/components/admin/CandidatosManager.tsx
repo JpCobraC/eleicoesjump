@@ -33,10 +33,7 @@ export const CandidatosManager: React.FC<CandidatosManagerProps> = ({
   const [cargoId, setCargoId] = useState(cargos[0]?.id || '');
   const [numero, setNumero] = useState('');
   const [nome, setNome] = useState('');
-  const [nomeVice, setNomeVice] = useState('');
-  const [chapa, setChapa] = useState('');
   const [fotoUrl, setFotoUrl] = useState('');
-  const [descricao, setDescricao] = useState('');
   const [outrosCargos, setOutrosCargos] = useState<string[]>([]);
   const [modoFoto, setModoFoto] = useState<'upload' | 'url'>('upload');
   const [previewErro, setPreviewErro] = useState(false);
@@ -104,10 +101,7 @@ export const CandidatosManager: React.FC<CandidatosManagerProps> = ({
     setCargoId(cargoPreSelecionado || cargos[0]?.id || '');
     setNumero('');
     setNome('');
-    setNomeVice('');
-    setChapa('CHAPA 1');
     setFotoUrl('');
-    setDescricao('');
     setOutrosCargos([]);
     setPreviewErro(false);
     setModalAberto(true);
@@ -118,10 +112,7 @@ export const CandidatosManager: React.FC<CandidatosManagerProps> = ({
     setCargoId(cand.cargo_id);
     setNumero(cand.numero);
     setNome(cand.nome);
-    setNomeVice(cand.nome_vice || '');
-    setChapa(cand.chapa);
     setFotoUrl(cand.foto_url || '');
-    setDescricao(cand.descricao || '');
     setPreviewErro(false);
     setModalAberto(true);
   };
@@ -157,10 +148,8 @@ export const CandidatosManager: React.FC<CandidatosManagerProps> = ({
       cargo_id: cargoId,
       numero: cleanNumero,
       nome: cleanNome,
-      nome_vice: nomeVice.trim() ? nomeVice.trim().toUpperCase() : undefined,
-      chapa: chapa.trim().toUpperCase() || 'CHAPA GERAL',
+      chapa: 'JUMP',
       foto_url: fotoUrl.trim() || undefined,
-      descricao: descricao.trim() || undefined,
     };
 
     await salvarCandidato(novoCandidato);
@@ -181,10 +170,8 @@ export const CandidatosManager: React.FC<CandidatosManagerProps> = ({
           cargo_id: extraCargoId,
           numero: numToUse,
           nome: cleanNome,
-          nome_vice: nomeVice.trim() ? nomeVice.trim().toUpperCase() : undefined,
-          chapa: chapa.trim().toUpperCase() || 'CHAPA GERAL',
+          chapa: 'JUMP',
           foto_url: fotoUrl.trim() || undefined,
-          descricao: descricao.trim() || undefined,
         });
       }
     }
@@ -339,25 +326,11 @@ export const CandidatosManager: React.FC<CandidatosManagerProps> = ({
                             <span className="inline-block px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/60 text-emerald-300 font-mono font-black text-xs mb-1">
                               Nº {cand.numero}
                             </span>
-                            <h4 className="text-sm font-black text-white uppercase leading-snug truncate">
+                            <h4 className="text-base font-black text-white uppercase leading-snug truncate">
                               {cand.nome}
                             </h4>
-                            {cand.nome_vice && (
-                              <p className="text-[11px] text-neutral-400 truncate">
-                                Vice: <strong className="text-neutral-300">{cand.nome_vice}</strong>
-                              </p>
-                            )}
-                            <p className="text-xs font-semibold text-emerald-400 mt-0.5 truncate">
-                              {cand.chapa}
-                            </p>
                           </div>
                         </div>
-
-                        {cand.descricao && (
-                          <p className="text-xs text-neutral-400 line-clamp-2 italic mb-2">
-                            &quot;{cand.descricao}&quot;
-                          </p>
-                        )}
                       </div>
 
                       {/* Ações */}
@@ -465,32 +438,6 @@ export const CandidatosManager: React.FC<CandidatosManagerProps> = ({
                       placeholder="Ex: LUCAS EMANUEL"
                       required
                       className="w-full bg-neutral-950 border border-neutral-700 rounded-xl p-3 text-white font-bold uppercase focus:outline-none focus:border-emerald-500 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-neutral-300 font-bold uppercase mb-1">
-                      Chapa ou Ministério:
-                    </label>
-                    <input
-                      type="text"
-                      value={chapa}
-                      onChange={(e) => setChapa(e.target.value)}
-                      placeholder="Ex: CHAPA 1 - GERAÇÃO ELEITA"
-                      className="w-full bg-neutral-950 border border-neutral-700 rounded-xl p-3 text-white uppercase focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-neutral-300 font-bold uppercase mb-1">
-                      Breve Descrição / Versículo / Proposta:
-                    </label>
-                    <textarea
-                      value={descricao}
-                      onChange={(e) => setDescricao(e.target.value)}
-                      rows={2}
-                      placeholder="Ex: Servindo na juventude há 3 anos. Foco em oração e discipulado."
-                      className="w-full bg-neutral-950 border border-neutral-700 rounded-xl p-3 text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
 
@@ -637,9 +584,6 @@ export const CandidatosManager: React.FC<CandidatosManagerProps> = ({
                         </div>
                         <div className="text-xs font-black uppercase text-neutral-900 leading-tight">
                           {nome || 'NOME DO CANDIDATO'}
-                        </div>
-                        <div className="text-[11px] font-bold text-neutral-700 uppercase">
-                          {chapa || 'CHAPA'}
                         </div>
                       </div>
 
