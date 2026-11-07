@@ -40,14 +40,13 @@ export default function TelaoPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [qrCodeAmpliado, setQrCodeAmpliado] = useState(false);
   const votingUrl = 'https://eleicoesjump.vercel.app/';
-  const [ultimoVencedorProclamado, setUltimoVencedorProclamado] = useState<string | null>(null);
   const [eleitoCelebrando, setEleitoCelebrando] = useState<{
     eleito: PessoaEleita;
     candidato?: Candidato;
     proximoCargo?: Cargo;
-    expiraEm: number;
   } | null>(null);
   const [segundosRestantes, setSegundosRestantes] = useState<number>(20);
+  const celebradoCargoRef = useRef<string | null>(null);
   const [modalEleitosGeral, setModalEleitosGeral] = useState(false);
   const isFetchingRef = useRef(false);
 
@@ -118,15 +117,15 @@ export default function TelaoPage() {
       setApuracao(apur);
       setCandidatos(cands);
 
-      // Dispara celebração e fogos de artifício se acabou de proclamar um novo vencedor (exibe por 20 segundos)
+      // Dispara celebração e fogos de artifício se acabou de proclamar um novo vencedor (apenas UMA vez por cargo)
       const totalEleitos = cfg.eleitos?.length || 0;
-      if (totalEleitos > 0) {
+      if (totalEleitos > 0 && cfg.status === 'aguardando') {
         const maisRecente = cfg.eleitos[totalEleitos - 1];
-        const eleitoEmMs = new Date(maisRecente.eleito_em).getTime();
-        const tempoDecorridoMs = Date.now() - eleitoEmMs;
-        const TEMPO_ESPERA_MS = 20 * 1000;
 
-        if (tempoDecorridoMs < TEMPO_ESPERA_MS) {
+        // Se este cargo ainda NÃO foi celebrado nesta tela
+        if (celebradoCargoRef.current !== maisRecente.cargo_id) {
+          celebradoCargoRef.current = maisRecente.cargo_id;
+
           const candObj = cands.find(
             (c) =>
               c.id === maisRecente.candidato_id ||
@@ -134,36 +133,17 @@ export default function TelaoPage() {
           );
           const proxCargo = cgs.find((c) => c.id === cfg.cargo_ativo_id);
 
-          setEleitoCelebrando((prev) => {
-            if (
-              prev &&
-              prev.eleito.nome === maisRecente.nome &&
-              prev.eleito.cargo_id === maisRecente.cargo_id
-            ) {
-              return prev;
-            }
-            return {
-              eleito: maisRecente,
-              candidato: candObj,
-              proximoCargo: proxCargo,
-              expiraEm: Date.now() + TEMPO_ESPERA_MS,
-            };
+          setEleitoCelebrando({
+            eleito: maisRecente,
+            candidato: candObj,
+            proximoCargo: proxCargo,
           });
-
           setSegundosRestantes(20);
 
-          if (maisRecente.nome !== ultimoVencedorProclamado) {
-            setUltimoVencedorProclamado(maisRecente.nome);
-            dispararFogosDeArtificio();
-          }
-        } else {
-          // Já se passaram mais de 20 segundos
-          if (cfg.status === 'aguardando' && cfg.cargo_ativo_id) {
-            updateConfiguracao({ status: 'aberta' }).catch(() => {});
-          }
-          setEleitoCelebrando(null);
+          dispararFogosDeArtificio();
         }
-      } else {
+      } else if (cfg.status === 'aberta') {
+        // Se a votação já está aberta, não há celebração ativa
         setEleitoCelebrando(null);
       }
     } catch (err) {
@@ -171,26 +151,27 @@ export default function TelaoPage() {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [ultimoVencedorProclamado, dispararFogosDeArtificio]);
+  }, [dispararFogosDeArtificio]);
 
   // Contagem regressiva estritamente de 20 segundos para abrir a próxima eleição
   useEffect(() => {
     if (!eleitoCelebrando) return;
 
-    const interval = setInterval(() => {
-      const msRestantes = eleitoCelebrando.expiraEm - Date.now();
-      const seg = Math.min(20, Math.max(0, Math.ceil(msRestantes / 1000)));
-      setSegundosRestantes(seg);
-
-      if (msRestantes <= 0 || seg <= 0) {
-        if (eleitoCelebrando.proximoCargo) {
-          updateConfiguracao({ status: 'aberta' }).catch(() => {});
+    const timer = setInterval(() => {
+      setSegundosRestantes((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (eleitoCelebrando.proximoCargo) {
+            updateConfiguracao({ status: 'aberta' }).catch(() => {});
+          }
+          setEleitoCelebrando(null);
+          return 0;
         }
-        setEleitoCelebrando(null);
-      }
-    }, 250);
+        return prev - 1;
+      });
+    }, 1000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(timer);
   }, [eleitoCelebrando]);
 
   const handlePularEspera = async () => {
