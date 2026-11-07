@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Urna Eletrônica - Eleições da Juventude',
+  title: 'Urna Eletrônica - Eleições JUMP',
   description:
-    'Sistema oficial de votação em urna eletrônica para grupos de jovens e ministérios da igreja com apuração em tempo real.',
+    'Sistema oficial de votação em urna eletrônica para o ministério JUMP com apuração em tempo real.',
 };
 
 export default function RootLayout({

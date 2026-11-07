@@ -6,8 +6,8 @@
 -- 1. TABELA DE CONFIGURAÇÃO DA ELEIÇÃO
 CREATE TABLE IF NOT EXISTS configuracao_eleicao (
   id TEXT PRIMARY KEY DEFAULT 'cfg-default',
-  titulo TEXT NOT NULL DEFAULT 'Eleições Juventude 2026',
-  igreja TEXT NOT NULL DEFAULT 'Ministério de Jovens da Igreja',
+  titulo TEXT NOT NULL DEFAULT 'Eleições JUMP 2026',
+  igreja TEXT NOT NULL DEFAULT 'JUMP',
   subtitulo TEXT DEFAULT 'Escolha com oração e sabedoria a nova diretoria para o próximo mandato',
   status TEXT NOT NULL DEFAULT 'aberta' CHECK (status IN ('aguardando', 'aberta', 'encerrada')),
   exigir_codigo_eleitor BOOLEAN NOT NULL DEFAULT true,
@@ -107,11 +107,11 @@ CREATE POLICY "Permitir leitura e insercao de dispositivos" ON registro_disposit
 INSERT INTO configuracao_eleicao (id, titulo, igreja, subtitulo, status, exigir_codigo_eleitor, codigo_mesario, som_habilitado)
 VALUES (
   'cfg-default',
-  'Eleições Juventude 2026',
-  'Ministério de Jovens da Igreja',
+  'Eleições JUMP 2026',
+  'JUMP',
   'Escolha com oração e sabedoria a nova diretoria para o próximo mandato',
   'aberta',
-  true,
+  false,
   '1234',
   true
 ) ON CONFLICT (id) DO UPDATE SET

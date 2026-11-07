@@ -188,7 +188,7 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
         <div className="border-b border-neutral-700/80 pb-3 flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-white uppercase tracking-wider">
-              Dados da Eleição e Juventude
+              Dados da Eleição JUMP
             </h3>
             <p className="text-neutral-400 text-xs">
               Personalize os nomes exibidos na tela da urna e nos relatórios impressos.
@@ -205,13 +205,13 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-neutral-400 font-bold uppercase mb-1">
-              Nome da Igreja / Ministério:
+              Nome do Ministério:
             </label>
             <input
               type="text"
               value={igreja}
               onChange={(e) => setIgreja(e.target.value)}
-              placeholder="Ex: Igreja Batista Memorial - Juventude JUMP"
+              placeholder="Ex: JUMP"
               required
               className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500"
             />
@@ -225,7 +225,7 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
               type="text"
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
-              placeholder="Ex: Eleições Juventude JUMP 2026"
+              placeholder="Ex: Eleições JUMP 2026"
               required
               className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500"
             />

@@ -157,10 +157,10 @@ export default function TelaoPage() {
             </div>
             <div>
               <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest block">
-                {config?.igreja || 'Igreja Local'}
+                {config?.igreja || 'JUMP'}
               </span>
               <h1 className="text-lg md:text-2xl font-black uppercase tracking-wider text-white">
-                {config?.titulo || 'Eleições da Juventude'}
+                {config?.titulo || 'Eleições JUMP'}
               </h1>
             </div>
           </div>

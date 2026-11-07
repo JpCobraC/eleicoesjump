@@ -212,10 +212,10 @@ export const MobileVotingScreen: React.FC = () => {
             </div>
             <div>
               <div className="text-xs font-black uppercase tracking-wider text-white">
-                {config?.igreja || 'Juventude da Igreja'}
+                {config?.igreja || 'JUMP'}
               </div>
               <div className="text-[10px] text-neutral-400">
-                {config?.titulo || 'Eleições da Juventude'}
+                {config?.titulo || 'Eleições JUMP'}
               </div>
             </div>
           </div>
@@ -461,7 +461,7 @@ export const MobileVotingScreen: React.FC = () => {
 
       {/* Rodapé Mobile */}
       <footer className="text-center text-[10px] text-neutral-500 py-3 border-t border-neutral-900">
-        Eleições da Juventude • Votação Segura pelo Celular
+        Eleições JUMP • Votação Segura pelo Celular
       </footer>
     </div>
   );

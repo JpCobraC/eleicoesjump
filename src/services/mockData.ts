@@ -2,11 +2,11 @@ import { Cargo, Candidato, Eleitor, ConfiguracaoEleicao } from '@/types/election
 
 export const INITIAL_CONFIG: ConfiguracaoEleicao = {
   id: 'cfg-default',
-  titulo: 'Eleições Juventude 2026',
-  igreja: 'Ministério de Jovens da Igreja',
+  titulo: 'Eleições JUMP 2026',
+  igreja: 'JUMP',
   subtitulo: 'Escolha com oração e sabedoria a nova diretoria para o próximo mandato',
   status: 'aberta',
-  exigir_codigo_eleitor: true,
+  exigir_codigo_eleitor: false,
   codigo_mesario: '1234',
   som_habilitado: true,
   modo_votacao: 'sequencial_um_por_vez',

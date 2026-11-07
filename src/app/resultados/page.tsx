@@ -147,7 +147,7 @@ export default function ResultadosPage() {
                   Resultados em Tempo Real
                 </h1>
                 <p className="text-[11px] text-neutral-400 mt-0.5">
-                  {config?.igreja || 'Juventude da Igreja'}
+                  {config?.igreja || 'JUMP'}
                 </p>
               </div>
             </div>
@@ -487,7 +487,7 @@ export default function ResultadosPage() {
 
       {/* Rodapé */}
       <footer className="text-center text-[11px] text-neutral-500 py-4 border-t border-neutral-900">
-        Painel de Resultados ao Vivo • Eleições da Juventude • Atualização Contínua
+        Painel de Resultados ao Vivo • Eleições JUMP • Atualização Contínua
       </footer>
     </div>
   );

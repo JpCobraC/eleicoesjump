@@ -275,10 +275,10 @@ export const UrnaMachine: React.FC = () => {
           </div>
           <div>
             <div className="font-extrabold uppercase tracking-wider text-neutral-200">
-              {config?.igreja || 'Juventude da Igreja'}
+              {config?.igreja || 'JUMP'}
             </div>
             <div className="text-[11px] text-neutral-400">
-              {config?.titulo || 'Eleições do Ministério Jovem'}
+              {config?.titulo || 'Eleições JUMP'}
             </div>
           </div>
         </div>
@@ -374,7 +374,7 @@ export const UrnaMachine: React.FC = () => {
                       VOTAÇÃO ATUAL: {currentCargo?.nome || 'DIRETORIA'}
                     </span>
                   ) : (
-                    config?.igreja || 'Igreja Local'
+                    config?.igreja || 'JUMP'
                   )}
                 </div>
               </div>
@@ -405,8 +405,8 @@ export const UrnaMachine: React.FC = () => {
                 isFim={isFim}
                 cargoIndex={currentCargoIndex}
                 totalCargos={cargos.length}
-                tituloEleicao={config?.titulo || 'Eleições'}
-                igreja={config?.igreja || 'Juventude'}
+                tituloEleicao={config?.titulo || 'Eleições JUMP'}
+                igreja={config?.igreja || 'JUMP'}
                 modoVotacao={config?.modo_votacao}
               />
             </div>

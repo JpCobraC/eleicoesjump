@@ -1,8 +1,8 @@
-# 🗳️ Sistema de Eleições da Juventude da Igreja
+# 🗳️ Sistema de Eleições - JUMP
 
-Sistema web completo, seguro e em tempo real para as eleições do grupo de jovens da igreja, pronto para deploy na **Vercel** e integrado ao banco de dados do **Supabase**.
+Sistema web completo, seguro e em tempo real para as eleições do ministério **JUMP**, pronto para deploy na **Vercel** e integrado ao banco de dados do **Supabase**.
 
-Projetado especificamente para ser **projetado no telão da igreja com QR Code**, onde os jovens votam diretamente em seus smartphones, e a liderança controla a eleição etapa por etapa pelo **Painel Admin**.
+Projetado especificamente para ser **projetado no telão com QR Code**, onde os jovens votam diretamente em seus smartphones, e a liderança controla a eleição etapa por etapa pelo **Painel Admin**.
 
 ---
 

@@ -221,7 +221,7 @@ export default function AdminPage() {
                   Painel de Apuração e Gestão
                 </h1>
                 <p className="text-[11px] text-neutral-400 mt-0.5">
-                  {config?.igreja || 'Juventude da Igreja'}
+                  {config?.igreja || 'JUMP'}
                 </p>
               </div>
             </div>

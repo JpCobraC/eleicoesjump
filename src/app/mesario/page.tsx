@@ -318,7 +318,7 @@ export default function MesarioPage() {
 
       {/* Rodapé */}
       <footer className="text-center text-[11px] text-neutral-500 py-4 border-t border-neutral-900">
-        Painel da Mesa Receptora • Eleições da Juventude
+        Painel da Mesa Receptora • Eleições JUMP
       </footer>
     </div>
   );

@@ -81,7 +81,7 @@ export const BoletimUrna: React.FC<BoletimUrnaProps> = ({
         {/* Metadados da Seção */}
         <div className="grid grid-cols-2 gap-2 border-b border-neutral-300 pb-3 mb-4 text-[11px]">
           <div>
-            <span className="font-bold">MUNICÍPIO / SEDE:</span> Igreja Local
+            <span className="font-bold">MUNICÍPIO / SEDE:</span> JUMP
           </div>
           <div>
             <span className="font-bold">DATA / HORA:</span> {dataHoraAtual}
@@ -208,12 +208,12 @@ export const BoletimUrna: React.FC<BoletimUrnaProps> = ({
           <div>
             <div className="border-b border-neutral-800 mb-1" />
             <div className="font-bold">PRESIDENTE DA MESA ELEITORAL</div>
-            <div className="text-neutral-500">Liderança do Ministério Jovem</div>
+            <div className="text-neutral-500">Liderança JUMP</div>
           </div>
           <div>
             <div className="border-b border-neutral-800 mb-1" />
             <div className="font-bold">PASTOR / SUPERVISOR RESPONSÁVEL</div>
-            <div className="text-neutral-500">Igreja Local</div>
+            <div className="text-neutral-500">JUMP</div>
           </div>
         </div>
       </div>
