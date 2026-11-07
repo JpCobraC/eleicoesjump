@@ -93,20 +93,32 @@ ALTER TABLE eleitores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registro_dispositivos ENABLE ROW LEVEL SECURITY;
 
--- Políticas públicas (permitem leitura e inserção de votos pela urna)
+-- Políticas públicas com DROP prévio para permitir reexecução idempotente sem erros
+DROP POLICY IF EXISTS "Permitir leitura de configuracao para todos" ON configuracao_eleicao;
 CREATE POLICY "Permitir leitura de configuracao para todos" ON configuracao_eleicao FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Permitir update de configuracao" ON configuracao_eleicao;
 CREATE POLICY "Permitir update de configuracao" ON configuracao_eleicao FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Permitir leitura de cargos para todos" ON cargos;
 CREATE POLICY "Permitir leitura de cargos para todos" ON cargos FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Permitir gerenciamento de cargos" ON cargos;
 CREATE POLICY "Permitir gerenciamento de cargos" ON cargos FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Permitir leitura de candidatos para todos" ON candidatos;
 CREATE POLICY "Permitir leitura de candidatos para todos" ON candidatos FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Permitir gerenciamento de candidatos" ON candidatos;
 CREATE POLICY "Permitir gerenciamento de candidatos" ON candidatos FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Permitir leitura e atualizacao de eleitores" ON eleitores;
 CREATE POLICY "Permitir leitura e atualizacao de eleitores" ON eleitores FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Permitir leitura e insercao de votos" ON votos;
 CREATE POLICY "Permitir leitura e insercao de votos" ON votos FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Permitir leitura e insercao de dispositivos" ON registro_dispositivos;
 CREATE POLICY "Permitir leitura e insercao de dispositivos" ON registro_dispositivos FOR ALL USING (true);
 
 -- ====================================================================
@@ -124,7 +136,7 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 
 -- ====================================================================
--- DADOS INICIAIS DE EXEMPLO: OS 5 CARGOS DA DIRETORIA
+-- DADOS INICIAIS: OS 5 CARGOS DA DIRETORIA DO JUMP
 -- ====================================================================
 
 -- Configuração inicial
@@ -144,48 +156,34 @@ VALUES (
 
 -- Os 5 Cargos da Diretoria em ordem sequencial
 INSERT INTO cargos (id, nome, ordem, digitos, permite_branco, descricao) VALUES
-('cargo-presidente', 'PRESIDENTE', 1, 2, true, 'Presidente do Grupo de Jovens'),
-('cargo-vice', 'VICE-PRESIDENTE', 2, 2, true, 'Vice-Presidente do Grupo de Jovens'),
+('cargo-presidente', 'PRESIDENTE', 1, 2, true, 'Presidente da Juventude JUMP'),
+('cargo-vice', 'VICE-PRESIDENTE', 2, 2, true, 'Vice-Presidente da Juventude JUMP'),
 ('cargo-sec-1', '1º SECRETÁRIO', 3, 2, true, 'Primeiro Secretário(a)'),
 ('cargo-sec-2', '2º SECRETÁRIO', 4, 2, true, 'Segundo Secretário(a)'),
-('cargo-tesoureiro', 'TESOUREIRO', 5, 2, true, 'Tesoureiro(a) do Grupo de Jovens')
+('cargo-tesoureiro', 'TESOUREIRO', 5, 2, true, 'Tesoureiro(a) da Juventude JUMP')
 ON CONFLICT (id) DO UPDATE SET
   nome = EXCLUDED.nome,
   ordem = EXCLUDED.ordem;
 
--- Candidatos de Teste
-INSERT INTO candidatos (id, cargo_id, numero, nome, chapa, foto_url, descricao) VALUES
+-- Candidatos de Demonstração (Apenas Foto e Nome)
+INSERT INTO candidatos (id, cargo_id, numero, nome, chapa, foto_url) VALUES
 -- Presidente
-('cand-pres-1', 'cargo-presidente', '10', 'LUCAS EMANUEL', 'CHAPA 10 - GERAÇÃO ELEITA', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80', 'Discipulado e evangelismo'),
-('cand-pres-2', 'cargo-presidente', '20', 'GABRIEL SANTOS', 'CHAPA 20 - RESGATE E GRAÇA', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80', 'Acolhimento e retiros'),
+('cand-pres-1', 'cargo-presidente', '10', 'LUCAS EMANUEL', 'JUMP', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'),
+('cand-pres-2', 'cargo-presidente', '20', 'GABRIEL SANTOS', 'JUMP', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80'),
 
 -- Vice-presidente
-('cand-vice-1', 'cargo-vice', '11', 'REBECA LIMA', 'CHAPA 10 - GERAÇÃO ELEITA', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80', 'Integração dos ministérios'),
-('cand-vice-2', 'cargo-vice', '21', 'SARAH MARTINS', 'CHAPA 20 - RESGATE E GRAÇA', 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&auto=format&fit=crop&q=80', 'Pastoreio das moças'),
+('cand-vice-1', 'cargo-vice', '11', 'REBECA LIMA', 'JUMP', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80'),
+('cand-vice-2', 'cargo-vice', '21', 'SARAH MARTINS', 'JUMP', 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&auto=format&fit=crop&q=80'),
 
 -- 1º Secretário
-('cand-sec1-1', 'cargo-sec-1', '12', 'ANA CLARA ALBUQUERQUE', 'CHAPA 10 - GERAÇÃO ELEITA', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80', 'Atas e comunicação oficial'),
-('cand-sec1-2', 'cargo-sec-1', '22', 'DANIEL RIBEIRO', 'CHAPA 20 - RESGATE E GRAÇA', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80', 'Organização e cronogramas'),
+('cand-sec1-1', 'cargo-sec-1', '12', 'ANA CLARA ALBUQUERQUE', 'JUMP', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80'),
+('cand-sec1-2', 'cargo-sec-1', '22', 'DANIEL RIBEIRO', 'JUMP', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80'),
 
 -- 2º Secretário
-('cand-sec2-1', 'cargo-sec-2', '13', 'FELIPE AUGUSTO', 'CHAPA 10 - GERAÇÃO ELEITA', 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400&auto=format&fit=crop&q=80', 'Apoio à secretaria e relatórios'),
-('cand-sec2-2', 'cargo-sec-2', '23', 'CAMILA FERREIRA', 'CHAPA 20 - RESGATE E GRAÇA', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80', 'Frequência e avisos'),
+('cand-sec2-1', 'cargo-sec-2', '13', 'FELIPE AUGUSTO', 'JUMP', 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400&auto=format&fit=crop&q=80'),
+('cand-sec2-2', 'cargo-sec-2', '23', 'CAMILA FERREIRA', 'JUMP', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'),
 
 -- Tesoureiro
-('cand-tes-1', 'cargo-tesoureiro', '14', 'MATHEUS SILVA', 'CHAPA 10 - GERAÇÃO ELEITA', 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80', 'Transparência nas contas e finanças'),
-('cand-tes-2', 'cargo-tesoureiro', '24', 'BEATRIZ SOUZA', 'CHAPA 20 - RESGATE E GRAÇA', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80', 'Gestão com fidelidade')
-ON CONFLICT (id) DO NOTHING;
-
--- Eleitores de Teste
-INSERT INTO eleitores (id, nome, codigo, votou) VALUES
-('el-1', 'Ana Clara Albuquerque', 'JUMP-01', false),
-('el-2', 'Bernardo Costa', 'JUMP-02', false),
-('el-3', 'Camila Ferreira', 'JUMP-03', false),
-('el-4', 'Daniel Ribeiro', 'JUMP-04', false),
-('el-5', 'Eduarda Vasconcelos', 'JUMP-05', false),
-('el-6', 'Felipe Augusto', 'JUMP-06', false),
-('el-7', 'Gabriela Ramos', 'JUMP-07', false),
-('el-8', 'Heitor Nogueira', 'JUMP-08', false),
-('el-9', 'Isabela Monteiro', 'JUMP-09', false),
-('el-10', 'João Pedro Carvalho', 'JUMP-10', false)
+('cand-tes-1', 'cargo-tesoureiro', '14', 'MATHEUS SILVA', 'JUMP', 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80'),
+('cand-tes-2', 'cargo-tesoureiro', '24', 'BEATRIZ SOUZA', 'JUMP', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80')
 ON CONFLICT (id) DO NOTHING;
