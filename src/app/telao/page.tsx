@@ -17,19 +17,17 @@ import {
   QrCode,
   Smartphone,
 } from 'lucide-react';
-import { ApuracaoCargo, Cargo, ConfiguracaoEleicao, Eleitor } from '@/types/election';
+import { ApuracaoCargo, Cargo, ConfiguracaoEleicao } from '@/types/election';
 import {
   getApuracao,
   getCargos,
   getConfiguracao,
-  getEleitores,
   initializeLocalStorage,
 } from '@/services/electionService';
 
 export default function TelaoPage() {
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
   const [cargos, setCargos] = useState<Cargo[]>([]);
-  const [eleitores, setEleitores] = useState<Eleitor[]>([]);
   const [apuracao, setApuracao] = useState<ApuracaoCargo[]>([]);
   const [modoSuspense, setModoSuspense] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -43,16 +41,15 @@ export default function TelaoPage() {
   const carregarDados = useCallback(async () => {
     initializeLocalStorage();
     try {
-      const [cfg, cgs, elts, apur] = await Promise.all([
+      const [cfg, cgs, apur] = await Promise.all([
         getConfiguracao(),
         getCargos(),
-        getEleitores(),
         getApuracao(),
       ]);
 
       setConfig(cfg);
       setCargos(cgs);
-      setEleitores(elts);
+      setApuracao(apur);
       setApuracao(apur);
 
       // Dispara confetes se acabou de proclamar um novo vencedor
@@ -82,16 +79,14 @@ export default function TelaoPage() {
     const inicial = async () => {
       initializeLocalStorage();
       try {
-        const [cfg, cgs, elts, apur] = await Promise.all([
+        const [cfg, cgs, apur] = await Promise.all([
           getConfiguracao(),
           getCargos(),
-          getEleitores(),
           getApuracao(),
         ]);
         if (ativo) {
           setConfig(cfg);
           setCargos(cgs);
-          setEleitores(elts);
           setApuracao(apur);
         }
       } catch (err) {
@@ -129,11 +124,6 @@ export default function TelaoPage() {
   const eleitos = config?.eleitos || [];
   const eleitoNesteCargo = eleitos.find((e) => e.cargo_id === cargoAtivoObj?.id);
 
-  const totalEleitores = eleitores.length;
-  const eleitoresVotaram = eleitores.filter((e) => e.votou).length;
-  const percentComparecimento =
-    totalEleitores > 0 ? Math.round((eleitoresVotaram / totalEleitores) * 100) : 0;
-
   return (
     <div className="min-h-screen bg-[#07090e] text-white flex flex-col justify-between p-4 sm:p-8 font-sans select-none overflow-hidden relative">
       {/* Luzes de fundo / ambient glow para o telão */}
@@ -170,7 +160,7 @@ export default function TelaoPage() {
         <div className="flex items-center gap-3">
           <div className="hidden lg:flex items-center gap-2 bg-neutral-900/90 border border-neutral-800 px-4 py-2 rounded-xl text-xs font-mono">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Participação: {percentComparecimento}% ({eleitoresVotaram}/{totalEleitores})</span>
+            <span>Votos Computados: {apuracaoAtiva?.totalVotos || 0}</span>
           </div>
 
           <button

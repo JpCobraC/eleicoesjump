@@ -11,6 +11,7 @@ import {
   VolumeX,
   Smartphone,
   Sparkles,
+  Clock,
 } from 'lucide-react';
 
 import { Cargo, Candidato, ConfiguracaoEleicao } from '@/types/election';
@@ -242,10 +243,17 @@ export const MobileVotingScreen: React.FC = () => {
         {/* CARD DO CARGO ABERTO NO MOMENTO */}
         <div className="bg-gradient-to-r from-emerald-950/80 to-neutral-900 border border-emerald-600/60 rounded-3xl p-5 shadow-xl">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-900/80 border border-emerald-500 text-emerald-300 text-[10px] font-bold uppercase tracking-widest">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              <span>Votação Aberta</span>
-            </span>
+            {config?.status === 'aguardando' ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-900/80 border border-amber-500 text-amber-300 text-[10px] font-bold uppercase tracking-widest">
+                <Clock className="w-3 h-3 text-amber-400" />
+                <span>Aguardando Início</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-900/80 border border-emerald-500 text-emerald-300 text-[10px] font-bold uppercase tracking-widest">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <span>Votação Aberta</span>
+              </span>
+            )}
             <span className="text-[10px] text-neutral-400 font-mono flex items-center gap-1">
               <Smartphone className="w-3 h-3 text-emerald-400" />
               <span>1 voto por aparelho</span>
@@ -256,14 +264,43 @@ export const MobileVotingScreen: React.FC = () => {
             {cargoAtivo?.nome || 'DIRETORIA'}
           </h2>
           <p className="text-xs text-neutral-300 mt-0.5">
-            {jaVotouNesteAparelho
+            {config?.status === 'aguardando'
+              ? 'Aguardando a liderança liberar a votação deste cargo...'
+              : jaVotouNesteAparelho
               ? 'Seu voto para este cargo já foi computado neste aparelho!'
               : 'Toque no candidato para votar:'}
           </p>
         </div>
 
-        {/* SE ESTE APARELHO JÁ VOTOU NESTE CARGO */}
-        {jaVotouNesteAparelho ? (
+        {/* SE A VOTAÇÃO ESTÁ EM ESPERA (AGUARDANDO O ADMIN INICIAR) */}
+        {config?.status === 'aguardando' ? (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 text-center space-y-4 shadow-xl animate-scale-up my-auto">
+            <div className="w-16 h-16 rounded-full bg-amber-950/70 border-2 border-amber-500 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-950/50">
+              <Clock className="w-8 h-8 animate-pulse" />
+            </div>
+            <div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/70 border border-amber-700/60 text-amber-300 text-[10px] font-bold uppercase tracking-wider mb-2">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Votação em Espera</span>
+              </span>
+              <h3 className="text-xl font-black text-white uppercase tracking-wider mt-1">
+                Aguardando a Mesa
+              </h3>
+              <p className="text-xs text-neutral-300 mt-1 max-w-xs mx-auto">
+                A votação para <strong>{cargoAtivo?.nome || 'PRESIDENTE'}</strong> ainda não foi liberada pela liderança.
+              </p>
+            </div>
+
+            <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 text-xs text-neutral-300 space-y-1">
+              <span className="text-xs font-bold text-emerald-400 block">
+                📺 Olhe para o Telão
+              </span>
+              <p className="text-[11px] text-neutral-400">
+                Assim que a mesa liberar a votação no telão, a cédula aparecerá na tela do seu celular automaticamente!
+              </p>
+            </div>
+          </div>
+        ) : jaVotouNesteAparelho ? (
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 text-center space-y-4 shadow-xl animate-scale-up my-auto">
             <div className="w-16 h-16 rounded-full bg-emerald-950 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-950/50">
               <CheckCircle2 className="w-10 h-10" />

@@ -34,7 +34,7 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
     config?.bloqueio_dispositivo ?? true
   );
   const [codigoMesario, setCodigoMesario] = useState(
-    config?.codigo_mesario || '1234'
+    config?.codigo_mesario || 'jumpelections@2026'
   );
   const [modoVotacao, setModoVotacao] = useState<'sequencial_um_por_vez' | 'todos_juntos'>(
     config?.modo_votacao || 'sequencial_um_por_vez'
@@ -309,13 +309,13 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
           {/* Senha do Mesário */}
           <div>
             <label className="block text-neutral-400 font-bold uppercase mb-1">
-              PIN / Senha do Mesário:
+              Senha Administrativa:
             </label>
             <input
               type="text"
               value={codigoMesario}
               onChange={(e) => setCodigoMesario(e.target.value)}
-              placeholder="Ex: 1234"
+              placeholder="Ex: jumpelections@2026"
               required
               className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2.5 text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
             />

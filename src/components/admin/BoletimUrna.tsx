@@ -14,7 +14,6 @@ interface BoletimUrnaProps {
 export const BoletimUrna: React.FC<BoletimUrnaProps> = ({
   apuracao,
   config,
-  eleitores,
   tipo = 'bu',
 }) => {
   const isZeresima = tipo === 'zeresima';
@@ -23,9 +22,7 @@ export const BoletimUrna: React.FC<BoletimUrnaProps> = ({
     timeStyle: 'medium',
   });
 
-  const totalEleitoresAptos = eleitores.length;
-  const totalEleitoresVotaram = eleitores.filter((e) => e.votou).length;
-  const totalEleitoresFaltosos = totalEleitoresAptos - totalEleitoresVotaram;
+  const totalVotosGeral = apuracao.reduce((acc, c) => acc + c.totalVotos, 0);
 
   const handlePrint = () => {
     window.print();
@@ -95,20 +92,17 @@ export const BoletimUrna: React.FC<BoletimUrnaProps> = ({
           </div>
         </div>
 
-        {/* Resumo de Eleitores */}
+        {/* Resumo Geral */}
         <div className="bg-neutral-50 p-3 border border-neutral-200 rounded mb-4 text-[11px]">
           <div className="font-bold border-b border-neutral-200 pb-1 mb-1">
-            ESTATÍSTICA DE COMPARECIMENTO:
+            RESUMO GERAL DO PLEITO:
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <span>Eleitores Aptos:</span> <strong>{totalEleitoresAptos}</strong>
+              <span>Total de Cargos em Disputa:</span> <strong>{apuracao.length}</strong>
             </div>
             <div>
-              <span>Comparecimento:</span> <strong>{totalEleitoresVotaram}</strong>
-            </div>
-            <div>
-              <span>Abstenções:</span> <strong>{totalEleitoresFaltosos}</strong>
+              <span>Total de Votos Registrados:</span> <strong>{totalVotosGeral}</strong>
             </div>
           </div>
         </div>

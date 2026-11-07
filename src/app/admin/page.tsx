@@ -122,16 +122,16 @@ export default function AdminPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const pinEsperado = config?.codigo_mesario || '1234';
+    const pinEsperado = config?.codigo_mesario || process.env.NEXT_PUBLIC_ADMIN_PIN || 'jumpelections@2026';
 
-    if (senhaInput.trim() === pinEsperado || senhaInput.trim() === 'admin123' || senhaInput.trim() === '1234') {
+    if (senhaInput.trim() === pinEsperado || senhaInput.trim() === 'jumpelections@2026') {
       setAutenticado(true);
       setErroLogin(null);
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('admin_auth', 'true');
       }
     } else {
-      setErroLogin('PIN de acesso incorreto. O PIN padrão inicial é 1234.');
+      setErroLogin('Senha de acesso incorreta. A senha é jumpelections@2026.');
     }
   };
 
@@ -170,7 +170,7 @@ export default function AdminPage() {
                 type="password"
                 value={senhaInput}
                 onChange={(e) => setSenhaInput(e.target.value)}
-                placeholder="PIN Administrativo (ex: 1234)"
+                placeholder="Senha Administrativa (jumpelections@2026)"
                 autoFocus
                 className="w-full bg-neutral-950 border border-neutral-700 rounded-xl py-3 px-4 text-center font-mono text-lg text-white tracking-widest focus:outline-none focus:border-emerald-500"
               />

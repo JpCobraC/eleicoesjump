@@ -60,7 +60,7 @@ O sistema segue a ordem de votação sequencial solicitada:
 4. Em **Environment Variables**, adicione as seguintes variáveis:
    - `NEXT_PUBLIC_SUPABASE_URL`: sua Project URL do Supabase (ex: `https://xyzcompany.supabase.co`)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: sua chave pública do Supabase
-   - `NEXT_PUBLIC_ADMIN_PIN`: `1234` *(ou a senha numérica da sua escolha)*
+   - `NEXT_PUBLIC_ADMIN_PIN`: `jumpelections@2026` *(ou a senha da sua escolha)*
 5. Clique em **"Deploy"**.
 6. Pronto! A sua eleição estará no ar com HTTPS e alta performance.
 
@@ -89,7 +89,7 @@ npm run dev
 Acesse no navegador:
 * Telão para o Datashow: [http://localhost:3000/telao](http://localhost:3000/telao)
 * Votação Mobile: [http://localhost:3000](http://localhost:3000)
-* Painel Admin: [http://localhost:3000/admin](http://localhost:3000/admin) *(PIN padrão: `1234`)*
+* Painel Admin: [http://localhost:3000/admin](http://localhost:3000/admin) *(Senha padrão: `jumpelections@2026`)*
 * Cadastro de Candidatos: [http://localhost:3000/admin/candidatos](http://localhost:3000/admin/candidatos)
 
 ---

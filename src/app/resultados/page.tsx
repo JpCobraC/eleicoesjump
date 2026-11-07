@@ -16,19 +16,17 @@ import {
   ChevronLeft,
   Tv,
 } from 'lucide-react';
-import { ApuracaoCargo, Cargo, ConfiguracaoEleicao, Eleitor } from '@/types/election';
+import { ApuracaoCargo, Cargo, ConfiguracaoEleicao } from '@/types/election';
 import {
   getApuracao,
   getCargos,
   getConfiguracao,
-  getEleitores,
   initializeLocalStorage,
 } from '@/services/electionService';
 
 export default function ResultadosPage() {
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
   const [cargos, setCargos] = useState<Cargo[]>([]);
-  const [eleitores, setEleitores] = useState<Eleitor[]>([]);
   const [apuracao, setApuracao] = useState<ApuracaoCargo[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -42,16 +40,14 @@ export default function ResultadosPage() {
     if (showLoading) setCarregando(true);
     initializeLocalStorage();
     try {
-      const [cfg, cgs, elts, apur] = await Promise.all([
+      const [cfg, cgs, apur] = await Promise.all([
         getConfiguracao(),
         getCargos(),
-        getEleitores(),
         getApuracao(),
       ]);
 
       setConfig(cfg);
       setCargos(cgs);
-      setEleitores(elts);
       setApuracao(apur);
       setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR'));
     } catch (err) {
@@ -68,16 +64,14 @@ export default function ResultadosPage() {
       setCarregando(true);
       initializeLocalStorage();
       try {
-        const [cfg, cgs, elts, apur] = await Promise.all([
+        const [cfg, cgs, apur] = await Promise.all([
           getConfiguracao(),
           getCargos(),
-          getEleitores(),
           getApuracao(),
         ]);
         if (ativo) {
           setConfig(cfg);
           setCargos(cgs);
-          setEleitores(elts);
           setApuracao(apur);
           setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR'));
         }
@@ -116,11 +110,6 @@ export default function ResultadosPage() {
   const apuracaoAtiva = apuracao.find((a) => a.cargo.id === cargoAtivoObj?.id);
 
   const eleitos = config?.eleitos || [];
-  const totalEleitores = eleitores.length;
-  const eleitoresVotaram = eleitores.filter((e) => e.votou).length;
-  const percentComparecimento =
-    totalEleitores > 0 ? Math.round((eleitoresVotaram / totalEleitores) * 100) : 0;
-
   const totalGeralVotos = apuracao.reduce((acc, curr) => acc + curr.totalVotos, 0);
 
   return (
@@ -259,13 +248,13 @@ export default function ResultadosPage() {
 
               <div className="bg-neutral-950/80 border border-neutral-800 p-4 rounded-2xl min-w-[130px] text-center">
                 <div className="text-[10px] font-mono text-neutral-400 uppercase font-bold">
-                  Comparecimento
+                  Votos Válidos
                 </div>
-                <div className="text-3xl font-black text-white mt-0.5">
-                  {percentComparecimento}%
+                <div className="text-3xl font-black text-emerald-400 mt-0.5">
+                  {apuracaoAtiva?.votosValidos || 0}
                 </div>
                 <div className="text-[10px] text-neutral-400 mt-0.5">
-                  {eleitoresVotaram} de {totalEleitores} aptos
+                  {apuracaoAtiva?.votosBrancos || 0} em branco
                 </div>
               </div>
             </div>

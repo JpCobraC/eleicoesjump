@@ -15,17 +15,13 @@ interface ApuracaoViewProps {
 
 export const ApuracaoView: React.FC<ApuracaoViewProps> = ({
   apuracao,
-  eleitores,
   config,
   onRefresh,
   carregando,
 }) => {
-  const totalEleitores = eleitores.length;
-  const eleitoresVotaram = eleitores.filter((e) => e.votou).length;
-  const porcentagemComparecimento =
-    totalEleitores > 0 ? Math.round((eleitoresVotaram / totalEleitores) * 100) : 0;
-
   const totalVotosGeral = apuracao.reduce((acc, curr) => acc + curr.totalVotos, 0);
+  const totalVotosValidos = apuracao.reduce((acc, curr) => acc + curr.votosValidos, 0);
+  const totalVotosBrancos = apuracao.reduce((acc, curr) => acc + curr.votosBrancos, 0);
 
   return (
     <div className="space-y-6">
@@ -49,17 +45,17 @@ export const ApuracaoView: React.FC<ApuracaoViewProps> = ({
           </div>
         </div>
 
-        {/* Participação dos Jovens */}
+        {/* Votos Válidos */}
         <div className="bg-neutral-800/80 border border-neutral-700/80 p-5 rounded-2xl flex items-center justify-between">
           <div>
             <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-              Comparecimento
+              Votos Válidos
             </div>
-            <div className="text-3xl font-black text-white mt-1">
-              {porcentagemComparecimento}%
+            <div className="text-3xl font-black text-emerald-400 mt-1">
+              {totalVotosValidos}
             </div>
             <div className="text-[11px] text-neutral-400 mt-1">
-              {eleitoresVotaram} de {totalEleitores} aptos
+              {totalVotosBrancos} em branco
             </div>
           </div>
           <div className="w-12 h-12 rounded-xl bg-blue-950/60 border border-blue-700/50 flex items-center justify-center text-blue-400">

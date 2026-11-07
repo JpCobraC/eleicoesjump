@@ -717,7 +717,7 @@ export async function proclamarEleitoEAvancar(
 
   if (proximoCargo) {
     novoCargoAtivoId = proximoCargo.id;
-    novoStatus = 'aberta';
+    novoStatus = 'aguardando';
     // Reseta status de votou para que todos os jovens votem para o próximo cargo!
     await resetarStatusEleitores();
   } else {
@@ -819,11 +819,11 @@ export async function zerarVotacao(): Promise<void> {
     'cargo-tesoureiro': `rodada-${Date.now()}-5`,
   };
 
-  // Reseta eleitos e volta ao cargo 1 (Presidente)
+  // Reseta eleitos e volta ao cargo 1 (Presidente) com status aguardando liberação do admin
   await updateConfiguracao({
     eleitos: [],
     cargo_ativo_id: 'cargo-presidente',
-    status: 'aberta',
+    status: 'aguardando',
     rodadas_tokens: novosTokens,
   });
 
