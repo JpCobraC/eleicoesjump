@@ -809,13 +809,13 @@ export async function proclamarEleitoEAvancar(
   const currentIndex = sortedCargos.findIndex((c) => c.id === cargoId);
   const proximoCargo = sortedCargos[currentIndex + 1];
 
-  let novoStatus: 'aguardando' | 'aberta' | 'encerrada' = 'aberta';
+  let novoStatus: 'aguardando' | 'aberta' | 'encerrada' = 'aguardando';
   let novoCargoAtivoId = config.cargo_ativo_id;
 
   if (proximoCargo) {
     novoCargoAtivoId = proximoCargo.id;
-    // O usuário solicitou que JÁ INICIE a próxima votação imediatamente!
-    novoStatus = 'aberta';
+    // Fica em 'aguardando' durante os 20 segundos de celebração antes de abrir a votação
+    novoStatus = 'aguardando';
     // Reseta status de votou para que todos os jovens votem para o próximo cargo!
     await resetarStatusEleitores();
   } else {
@@ -839,6 +839,21 @@ export async function proclamarEleitoEAvancar(
   });
 
   notifyRealtimeChange('PROCLAMADO');
+
+  // Agenda para abrir a próxima eleição automaticamente após exatamente 20 segundos de exibição do eleito
+  if (proximoCargo && typeof window !== 'undefined') {
+    setTimeout(async () => {
+      try {
+        const cfgAtual = await getConfiguracao();
+        if (cfgAtual.cargo_ativo_id === proximoCargo.id && cfgAtual.status === 'aguardando') {
+          await updateConfiguracao({ status: 'aberta' });
+          notifyRealtimeChange('INICIOU_PROXIMO');
+        }
+      } catch (err) {
+        console.error('Erro ao abrir próxima eleição após 20s:', err);
+      }
+    }, 20000);
+  }
 
   return {
     proximoCargo,

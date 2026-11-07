@@ -18,6 +18,7 @@ import {
   Smartphone,
   Sparkles,
   Crown,
+  Clock,
 } from 'lucide-react';
 import { ApuracaoCargo, Cargo, ConfiguracaoEleicao, Candidato, PessoaEleita } from '@/types/election';
 import {
@@ -25,6 +26,7 @@ import {
   getCargos,
   getConfiguracao,
   getCandidatos,
+  updateConfiguracao,
   initializeLocalStorage,
 } from '@/services/electionService';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -43,9 +45,9 @@ export default function TelaoPage() {
     eleito: PessoaEleita;
     candidato?: Candidato;
     proximoCargo?: Cargo;
+    segundosRestantes: number;
   } | null>(null);
   const [modalEleitosGeral, setModalEleitosGeral] = useState(false);
-  const celebracaoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isFetchingRef = useRef(false);
 
   // Efeito espetacular de fogos de artifício com múltiplos canhões laterais e explosões
@@ -115,13 +117,14 @@ export default function TelaoPage() {
       setApuracao(apur);
       setCandidatos(cands);
 
-      // Dispara celebração e fogos de artifício se acabou de proclamar um novo vencedor
+      // Dispara celebração e fogos de artifício se acabou de proclamar um novo vencedor (exibe por 20 segundos)
       const totalEleitos = cfg.eleitos?.length || 0;
       if (totalEleitos > 0) {
         const maisRecente = cfg.eleitos[totalEleitos - 1];
-        if (maisRecente && maisRecente.nome !== ultimoVencedorProclamado) {
-          setUltimoVencedorProclamado(maisRecente.nome);
+        const tempoDecorridoMs = Date.now() - new Date(maisRecente.eleito_em).getTime();
 
+        if (tempoDecorridoMs < 20000) {
+          const segRestantes = Math.max(1, Math.ceil((20000 - tempoDecorridoMs) / 1000));
           const candObj = cands.find(
             (c) =>
               c.id === maisRecente.candidato_id ||
@@ -133,14 +136,13 @@ export default function TelaoPage() {
             eleito: maisRecente,
             candidato: candObj,
             proximoCargo: proxCargo,
+            segundosRestantes: segRestantes,
           });
 
-          dispararFogosDeArtificio();
-
-          if (celebracaoTimerRef.current) clearTimeout(celebracaoTimerRef.current);
-          celebracaoTimerRef.current = setTimeout(() => {
-            setEleitoCelebrando(null);
-          }, 12000);
+          if (maisRecente.nome !== ultimoVencedorProclamado) {
+            setUltimoVencedorProclamado(maisRecente.nome);
+            dispararFogosDeArtificio();
+          }
         }
       }
     } catch (err) {
@@ -149,6 +151,37 @@ export default function TelaoPage() {
       isFetchingRef.current = false;
     }
   }, [ultimoVencedorProclamado, dispararFogosDeArtificio]);
+
+  // Contagem regressiva dos 20 segundos para abrir a próxima eleição
+  useEffect(() => {
+    if (!eleitoCelebrando) return;
+
+    const timer = setInterval(() => {
+      setEleitoCelebrando((prev) => {
+        if (!prev) return null;
+        if (prev.segundosRestantes <= 1) {
+          // 20 segundos acabaram: abre automaticamente a próxima etapa na urna e telão!
+          if (prev.proximoCargo && config?.status === 'aguardando') {
+            updateConfiguracao({ status: 'aberta' }).catch(() => {});
+          }
+          return null;
+        }
+        return {
+          ...prev,
+          segundosRestantes: prev.segundosRestantes - 1,
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [eleitoCelebrando, config]);
+
+  const handlePularEspera = async () => {
+    if (eleitoCelebrando?.proximoCargo) {
+      await updateConfiguracao({ status: 'aberta' });
+    }
+    setEleitoCelebrando(null);
+  };
 
   useEffect(() => {
     const timerInicial = setTimeout(() => {
@@ -206,9 +239,6 @@ export default function TelaoPage() {
         bc.close();
       }
       window.removeEventListener('eleicoes_jump_update', handleLocalUpdate);
-      if (celebracaoTimerRef.current) {
-        clearTimeout(celebracaoTimerRef.current);
-      }
     };
   }, [carregarDados]);
 
@@ -682,32 +712,48 @@ export default function TelaoPage() {
               </div>
             </div>
 
-            {/* Notificação de que a próxima etapa já está aberta */}
-            <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/70 text-left sm:text-center space-y-1">
+            {/* Contador Regressivo de 20s para Abrir a Próxima Votação */}
+            <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/70 text-center space-y-2">
               <div className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-300">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                <Clock className="w-4 h-4 text-emerald-400 animate-spin" />
                 <span>
                   {eleitoCelebrando.proximoCargo
-                    ? `A VOTAÇÃO PARA ${eleitoCelebrando.proximoCargo.nome} JÁ ESTÁ ABERTA!`
+                    ? `A PRÓXIMA ELEIÇÃO (${eleitoCelebrando.proximoCargo.nome}) ABRIRÁ EM:`
                     : 'TODAS AS ETAPAS DA ELEIÇÃO FORAM CONCLUÍDAS!'}
                 </span>
               </div>
-              <p className="text-xs text-neutral-300">
-                {eleitoCelebrando.proximoCargo
-                  ? 'Aponte seu celular para o QR Code no telão e vote no próximo cargo!'
-                  : 'Parabéns à nova diretoria eleita da juventude JUMP!'}
-              </p>
+
+              {eleitoCelebrando.proximoCargo && (
+                <div className="text-3xl sm:text-4xl font-mono font-black text-white">
+                  {eleitoCelebrando.segundosRestantes}s
+                </div>
+              )}
+
+              {/* Barra de progresso dos 20 segundos */}
+              {eleitoCelebrando.proximoCargo && (
+                <div className="w-full h-2.5 bg-neutral-900 rounded-full overflow-hidden border border-emerald-900">
+                  <div
+                    className="h-full bg-emerald-400 transition-all duration-1000 ease-linear rounded-full"
+                    style={{
+                      width: `${(eleitoCelebrando.segundosRestantes / 20) * 100}%`,
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="pt-2 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setEleitoCelebrando(null)}
-                className="px-6 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-neutral-700"
-              >
-                Acompanhar Votação Atual
-              </button>
-            </div>
+            {eleitoCelebrando.proximoCargo && (
+              <div className="pt-2 flex justify-center">
+                <button
+                  type="button"
+                  onClick={handlePularEspera}
+                  className="px-6 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-neutral-700 flex items-center gap-2"
+                >
+                  <span>Pular Espera e Abrir Agora</span>
+                  <span>⏩</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

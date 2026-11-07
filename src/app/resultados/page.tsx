@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import confetti from 'canvas-confetti';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Trophy,
@@ -15,82 +16,229 @@ import {
   Clock,
   ChevronLeft,
   Tv,
+  Sparkles,
+  Crown,
 } from 'lucide-react';
-import { ApuracaoCargo, Cargo, ConfiguracaoEleicao } from '@/types/election';
+import { ApuracaoCargo, Cargo, ConfiguracaoEleicao, Candidato, PessoaEleita } from '@/types/election';
 import {
   getApuracao,
   getCargos,
   getConfiguracao,
+  getCandidatos,
+  updateConfiguracao,
   initializeLocalStorage,
 } from '@/services/electionService';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export default function ResultadosPage() {
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
   const [cargos, setCargos] = useState<Cargo[]>([]);
+  const [, setCandidatos] = useState<Candidato[]>([]);
   const [apuracao, setApuracao] = useState<ApuracaoCargo[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<string>('');
   const votingUrl = 'https://eleicoesjump.vercel.app/';
+  const [ultimoVencedorProclamado, setUltimoVencedorProclamado] = useState<string | null>(null);
+  const [eleitoCelebrando, setEleitoCelebrando] = useState<{
+    eleito: PessoaEleita;
+    candidato?: Candidato;
+    proximoCargo?: Cargo;
+    segundosRestantes: number;
+  } | null>(null);
+  const isFetchingRef = useRef(false);
 
-  const carregarDados = async (showLoading = false) => {
+  // Efeito de fogos de artifício
+  const dispararFogos = useCallback(() => {
+    try {
+      const end = Date.now() + 6 * 1000;
+      const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#ffffff', '#ffd700'];
+
+      const interval: ReturnType<typeof setInterval> = setInterval(() => {
+        if (Date.now() > end) {
+          clearInterval(interval);
+          return;
+        }
+
+        confetti({
+          startVelocity: 50,
+          spread: 85,
+          ticks: 90,
+          origin: { x: 0.15, y: 0.65 },
+          colors,
+          zIndex: 99999,
+          particleCount: 45,
+        });
+
+        confetti({
+          startVelocity: 50,
+          spread: 85,
+          ticks: 90,
+          origin: { x: 0.85, y: 0.65 },
+          colors,
+          zIndex: 99999,
+          particleCount: 45,
+        });
+
+        confetti({
+          startVelocity: 35,
+          spread: 360,
+          ticks: 75,
+          origin: { x: 0.5, y: 0.3 },
+          colors,
+          zIndex: 99999,
+          particleCount: 35,
+        });
+      }, 350);
+    } catch (e) {
+      console.error('Erro ao disparar fogos:', e);
+    }
+  }, []);
+
+  const carregarDados = useCallback(async (showLoading = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     if (showLoading) setCarregando(true);
     initializeLocalStorage();
     try {
-      const [cfg, cgs, apur] = await Promise.all([
+      const [cfg, cgs, apur, cands] = await Promise.all([
         getConfiguracao(),
         getCargos(),
         getApuracao(),
+        getCandidatos(),
       ]);
 
       setConfig(cfg);
       setCargos(cgs);
       setApuracao(apur);
+      setCandidatos(cands);
       setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR'));
+
+      // Verifica se houve eleito recentemente para exibir celebração de 20s
+      const totalEleitos = cfg.eleitos?.length || 0;
+      if (totalEleitos > 0) {
+        const maisRecente = cfg.eleitos[totalEleitos - 1];
+        const tempoDecorridoMs = Date.now() - new Date(maisRecente.eleito_em).getTime();
+
+        if (tempoDecorridoMs < 20000) {
+          const segRestantes = Math.max(1, Math.ceil((20000 - tempoDecorridoMs) / 1000));
+          const candObj = cands.find(
+            (c) =>
+              c.id === maisRecente.candidato_id ||
+              c.nome.trim().toUpperCase() === maisRecente.nome.trim().toUpperCase()
+          );
+          const proxCargo = cgs.find((c) => c.id === cfg.cargo_ativo_id);
+
+          setEleitoCelebrando({
+            eleito: maisRecente,
+            candidato: candObj,
+            proximoCargo: proxCargo,
+            segundosRestantes: segRestantes,
+          });
+
+          if (maisRecente.nome !== ultimoVencedorProclamado) {
+            setUltimoVencedorProclamado(maisRecente.nome);
+            dispararFogos();
+          }
+        }
+      }
     } catch (err) {
       console.error('Erro ao atualizar resultados:', err);
     } finally {
       if (showLoading) setCarregando(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [ultimoVencedorProclamado, dispararFogos]);
+
+  // Contagem regressiva dos 20 segundos na tela
+  useEffect(() => {
+    if (!eleitoCelebrando) return;
+
+    const timer = setInterval(() => {
+      setEleitoCelebrando((prev) => {
+        if (!prev) return null;
+        if (prev.segundosRestantes <= 1) {
+          // 20 segundos encerrados: abre automaticamente a próxima votação!
+          if (prev.proximoCargo && config?.status === 'aguardando') {
+            updateConfiguracao({ status: 'aberta' }).catch(() => {});
+          }
+          return null;
+        }
+        return {
+          ...prev,
+          segundosRestantes: prev.segundosRestantes - 1,
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [eleitoCelebrando, config]);
 
   useEffect(() => {
-    let ativo = true;
+    const timerInicial = setTimeout(() => {
+      carregarDados();
+    }, 0);
 
-    const init = async () => {
-      setCarregando(true);
-      initializeLocalStorage();
-      try {
-        const [cfg, cgs, apur] = await Promise.all([
-          getConfiguracao(),
-          getCargos(),
-          getApuracao(),
-        ]);
-        if (ativo) {
-          setConfig(cfg);
-          setCargos(cgs);
-          setApuracao(apur);
-          setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR'));
-        }
-      } catch (err) {
-        console.error('Erro ao inicializar resultados:', err);
-      } finally {
-        if (ativo) setCarregando(false);
-      }
-    };
+    // 1. Supabase Realtime via WebSockets
+    const client = supabase;
+    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
+    if (isSupabaseConfigured() && client) {
+      channel = client
+        .channel('resultados-live-realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'votos' },
+          () => {
+            carregarDados();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'configuracao_eleicao' },
+          () => {
+            carregarDados();
+          }
+        )
+        .subscribe();
+    }
 
-    init();
+    // 2. BroadcastChannel
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('eleicoes_jump_realtime_bus');
+      bc.onmessage = () => {
+        carregarDados();
+      };
+    }
 
-    // Atualização em tempo real periódica (a cada 3 segundos)
+    // 3. CustomEvent local
+    const handleLocalUpdate = () => carregarDados();
+    window.addEventListener('eleicoes_jump_update', handleLocalUpdate);
+
+    // 4. Polling fallback rápido a cada 800ms
     const interval = setInterval(() => {
-      carregarDados(false);
-    }, 3000);
+      carregarDados();
+    }, 800);
 
     return () => {
-      ativo = false;
+      clearTimeout(timerInicial);
       clearInterval(interval);
+      if (channel && client) {
+        client.removeChannel(channel);
+      }
+      if (bc) {
+        bc.close();
+      }
+      window.removeEventListener('eleicoes_jump_update', handleLocalUpdate);
     };
-  }, []);
+  }, [carregarDados]);
+
+  const handlePularEspera = async () => {
+    if (eleitoCelebrando?.proximoCargo) {
+      await updateConfiguracao({ status: 'aberta' });
+    }
+    setEleitoCelebrando(null);
+  };
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -466,6 +614,103 @@ export default function ResultadosPage() {
       <footer className="text-center text-[11px] text-neutral-500 py-4 border-t border-neutral-900">
         Painel de Resultados ao Vivo • Eleições JUMP • Atualização Contínua
       </footer>
+
+      {/* MODAL / OVERLAY GIGANTE DE CELEBRAÇÃO DO ELEITO POR 20 SEGUNDOS COM FOGOS */}
+      {eleitoCelebrando && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 animate-scale-up">
+          <div className="text-center space-y-6 max-w-2xl w-full bg-gradient-to-b from-neutral-900/95 via-neutral-950 to-black border-4 border-amber-400 rounded-3xl p-8 sm:p-12 shadow-2xl shadow-amber-500/40 relative overflow-hidden">
+            {/* Ambient glows */}
+            <div className="absolute -top-20 -left-20 w-64 h-64 bg-amber-500/25 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-emerald-500/25 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Selo Topo */}
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-amber-950/90 border border-amber-400 text-amber-300 font-black text-xs uppercase tracking-widest shadow-xl animate-pulse">
+              <Trophy className="w-4 h-4 text-amber-400" />
+              <span>PROCLAMAÇÃO OFICIAL • JUMP 2026</span>
+              <Sparkles className="w-4 h-4 text-amber-400" />
+            </div>
+
+            {/* Foto do Eleito */}
+            <div className="relative mx-auto w-36 h-48 sm:w-44 sm:h-56 rounded-3xl overflow-hidden bg-neutral-900 border-4 border-amber-400 shadow-2xl shadow-amber-500/50">
+              {eleitoCelebrando.candidato?.foto_url ? (
+                <Image
+                  src={eleitoCelebrando.candidato.foto_url}
+                  alt={eleitoCelebrando.eleito.nome}
+                  fill
+                  sizes="240px"
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-6xl">
+                  👤
+                </div>
+              )}
+              <div className="absolute top-2.5 right-2.5 p-2 rounded-full bg-amber-400 text-black shadow-lg">
+                <Crown className="w-5 h-5 fill-current" />
+              </div>
+            </div>
+
+            <div>
+              <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest block mb-1">
+                ELEITO(A) PELA IGREJA PARA:
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black uppercase text-amber-300 tracking-wider">
+                {eleitoCelebrando.eleito.cargo_nome}
+              </h2>
+              <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-white mt-1 drop-shadow-md">
+                {eleitoCelebrando.eleito.nome}
+              </h1>
+              <div className="inline-block mt-3 px-4 py-1.5 rounded-xl bg-neutral-900 border border-neutral-700 font-mono text-sm font-bold text-emerald-400">
+                {eleitoCelebrando.eleito.votos} VOTOS RECEBIDOS
+              </div>
+            </div>
+
+            {/* Contador Regressivo de 20s para Abrir a Próxima Votação */}
+            <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/70 text-center space-y-2">
+              <div className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-300">
+                <Clock className="w-4 h-4 text-emerald-400 animate-spin" />
+                <span>
+                  {eleitoCelebrando.proximoCargo
+                    ? `A PRÓXIMA ELEIÇÃO (${eleitoCelebrando.proximoCargo.nome}) ABRIRÁ EM:`
+                    : 'ELEIÇÃO FINALIZADA COM SUCESSO!'}
+                </span>
+              </div>
+
+              {eleitoCelebrando.proximoCargo && (
+                <div className="text-3xl sm:text-4xl font-mono font-black text-white">
+                  {eleitoCelebrando.segundosRestantes}s
+                </div>
+              )}
+
+              {/* Barra de progresso dos 20 segundos */}
+              {eleitoCelebrando.proximoCargo && (
+                <div className="w-full h-2.5 bg-neutral-900 rounded-full overflow-hidden border border-emerald-900">
+                  <div
+                    className="h-full bg-emerald-400 transition-all duration-1000 ease-linear rounded-full"
+                    style={{
+                      width: `${(eleitoCelebrando.segundosRestantes / 20) * 100}%`,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {eleitoCelebrando.proximoCargo && (
+              <div className="pt-2 flex justify-center">
+                <button
+                  type="button"
+                  onClick={handlePularEspera}
+                  className="px-6 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-neutral-700 flex items-center gap-2"
+                >
+                  <span>Pular Espera e Abrir Agora</span>
+                  <span>⏩</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
