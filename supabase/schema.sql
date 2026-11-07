@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS configuracao_eleicao (
   exigir_codigo_eleitor BOOLEAN NOT NULL DEFAULT true,
   codigo_mesario TEXT NOT NULL DEFAULT '1234',
   som_habilitado BOOLEAN NOT NULL DEFAULT true,
+  bloqueio_dispositivo BOOLEAN NOT NULL DEFAULT true,
+  rodadas_tokens JSONB DEFAULT '{}'::jsonb,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
@@ -61,6 +63,16 @@ CREATE TABLE IF NOT EXISTS votos (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
+-- 6. REGISTRO DE DISPOSITIVOS VOTANTES (BLOQUEIO DE VOTO DUPLO POR APARELHO PRESERVANDO O SIGILO)
+CREATE TABLE IF NOT EXISTS registro_dispositivos (
+  id TEXT PRIMARY KEY,
+  cargo_id TEXT NOT NULL REFERENCES cargos(id) ON DELETE CASCADE,
+  dispositivo_id TEXT NOT NULL,
+  token_rodada TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+  UNIQUE(cargo_id, dispositivo_id, token_rodada)
+);
+
 -- ====================================================================
 -- HABILITAR ROW LEVEL SECURITY (RLS)
 -- ====================================================================
@@ -69,6 +81,7 @@ ALTER TABLE cargos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE candidatos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE eleitores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registro_dispositivos ENABLE ROW LEVEL SECURITY;
 
 -- Políticas públicas (permitem leitura e inserção de votos pela urna)
 CREATE POLICY "Permitir leitura de configuracao para todos" ON configuracao_eleicao FOR SELECT USING (true);
@@ -83,6 +96,8 @@ CREATE POLICY "Permitir gerenciamento de candidatos" ON candidatos FOR ALL USING
 CREATE POLICY "Permitir leitura e atualizacao de eleitores" ON eleitores FOR ALL USING (true);
 
 CREATE POLICY "Permitir leitura e insercao de votos" ON votos FOR ALL USING (true);
+
+CREATE POLICY "Permitir leitura e insercao de dispositivos" ON registro_dispositivos FOR ALL USING (true);
 
 -- ====================================================================
 -- DADOS INICIAIS DE EXEMPLO: OS 5 CARGOS DA DIRETORIA

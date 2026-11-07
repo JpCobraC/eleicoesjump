@@ -7,6 +7,7 @@ import {
   ConfiguracaoEleicao,
   ApuracaoCargo,
   PessoaEleita,
+  RegistroDispositivo,
 } from '@/types/election';
 import {
   INITIAL_CARGOS,
@@ -21,6 +22,7 @@ const STORAGE_KEYS = {
   CANDIDATOS: 'eleicoes_jump_candidatos_v2',
   ELEITORES: 'eleicoes_jump_eleitores_v2',
   VOTOS: 'eleicoes_jump_votos_v2',
+  DISPOSITIVOS: 'eleicoes_jump_dispositivos_v2',
 };
 
 export function normalizeName(name: string): string {
@@ -99,6 +101,15 @@ export async function getConfiguracao(): Promise<ConfiguracaoEleicao> {
   return {
     ...INITIAL_CONFIG,
     ...config,
+    exigir_codigo_eleitor: false,
+    bloqueio_dispositivo: config.bloqueio_dispositivo ?? true,
+    rodadas_tokens: config.rodadas_tokens || {
+      'cargo-presidente': 'rodada-1',
+      'cargo-vice': 'rodada-1',
+      'cargo-sec-1': 'rodada-1',
+      'cargo-sec-2': 'rodada-1',
+      'cargo-tesoureiro': 'rodada-1',
+    },
     modo_votacao: config.modo_votacao || 'sequencial_um_por_vez',
     cargo_ativo_id: config.cargo_ativo_id || 'cargo-presidente',
     eleitos: config.eleitos || [],
@@ -357,6 +368,165 @@ export async function resetarStatusEleitores(): Promise<void> {
   setLocal(STORAGE_KEYS.ELEITORES, eleitores);
 }
 
+// ======================== IDENTIFICAÇÃO E BLOQUEIO DE DISPOSITIVO ======================== //
+
+export function getOrCreateDeviceId(): string {
+  if (typeof window === 'undefined') return 'server';
+  let devId = localStorage.getItem('eleicao_jump_device_id');
+  if (!devId) {
+    const match = document.cookie.match(/eleicao_jump_device_id=([^;]+)/);
+    if (match && match[1]) {
+      devId = match[1];
+    }
+  }
+  if (!devId) {
+    devId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `dev-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  }
+  localStorage.setItem('eleicao_jump_device_id', devId);
+  try {
+    document.cookie = `eleicao_jump_device_id=${devId}; path=/; max-age=31536000; SameSite=Lax`;
+  } catch {}
+  return devId;
+}
+
+export async function verificarDispositivoJaVotou(
+  cargoId: string,
+  dispositivoId?: string
+): Promise<boolean> {
+  const config = await getConfiguracao();
+  if (config.bloqueio_dispositivo === false) return false;
+
+  const devId = dispositivoId || getOrCreateDeviceId();
+  const tokenRodada = config.rodadas_tokens?.[cargoId] || 'rodada-1';
+
+  // 1. Tenta verificar no Supabase
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('registro_dispositivos')
+        .select('id')
+        .eq('cargo_id', cargoId)
+        .eq('dispositivo_id', devId)
+        .eq('token_rodada', tokenRodada);
+      if (!error && data && data.length > 0) {
+        return true;
+      }
+    } catch (e) {
+      console.warn('Erro ao verificar dispositivo no Supabase:', e);
+    }
+  }
+
+  // 2. Fallback / Verificação local
+  const registros = getLocal<RegistroDispositivo[]>(STORAGE_KEYS.DISPOSITIVOS, []);
+  return registros.some(
+    (r) =>
+      r.cargo_id === cargoId &&
+      r.dispositivo_id === devId &&
+      r.token_rodada === tokenRodada
+  );
+}
+
+export async function registrarVotoDispositivo(
+  cargoId: string,
+  dispositivoId: string,
+  tokenRodada: string
+): Promise<void> {
+  const novoRegistro: RegistroDispositivo = {
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `devreg-${Date.now()}-${Math.random()}`,
+    cargo_id: cargoId,
+    dispositivo_id: dispositivoId,
+    token_rodada: tokenRodada,
+    created_at: new Date().toISOString(),
+  };
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('registro_dispositivos').insert([novoRegistro]);
+    } catch (err) {
+      console.warn('Erro ao inserir registro de dispositivo no Supabase:', err);
+    }
+  }
+
+  const registros = getLocal<RegistroDispositivo[]>(STORAGE_KEYS.DISPOSITIVOS, []);
+  registros.push(novoRegistro);
+  setLocal(STORAGE_KEYS.DISPOSITIVOS, registros);
+}
+
+export async function contarDispositivosVotaram(cargoId: string): Promise<number> {
+  const config = await getConfiguracao();
+  const tokenRodada = config.rodadas_tokens?.[cargoId] || 'rodada-1';
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('registro_dispositivos')
+        .select('dispositivo_id')
+        .eq('cargo_id', cargoId)
+        .eq('token_rodada', tokenRodada);
+      if (!error && data) {
+        const unique = new Set(data.map((d: { dispositivo_id: string }) => d.dispositivo_id));
+        return unique.size;
+      }
+    } catch (e) {
+      console.warn('Erro ao contar dispositivos no Supabase:', e);
+    }
+  }
+
+  const registros = getLocal<RegistroDispositivo[]>(STORAGE_KEYS.DISPOSITIVOS, []);
+  const filtrados = registros.filter(
+    (r) => r.cargo_id === cargoId && r.token_rodada === tokenRodada
+  );
+  const unique = new Set(filtrados.map((r) => r.dispositivo_id));
+  return unique.size;
+}
+
+/**
+ * Libera todos os dispositivos que votaram neste cargo específico
+ * gerando um novo token de rodada para o cargo.
+ */
+export async function liberarDispositivosCargo(cargoId: string): Promise<void> {
+  const config = await getConfiguracao();
+  const novoToken = `rodada-${Date.now()}`;
+  const novosTokens = {
+    ...(config.rodadas_tokens || {}),
+    [cargoId]: novoToken,
+  };
+
+  await updateConfiguracao({
+    rodadas_tokens: novosTokens,
+  });
+
+  // Limpa registros locais deste cargo
+  const registros = getLocal<RegistroDispositivo[]>(STORAGE_KEYS.DISPOSITIVOS, []);
+  const limpos = registros.filter((r) => r.cargo_id !== cargoId);
+  setLocal(STORAGE_KEYS.DISPOSITIVOS, limpos);
+}
+
+/**
+ * Zera apenas a votação do cargo informado, apagando seus votos
+ * e liberando todos os dispositivos para votar do zero neste cargo.
+ */
+export async function zerarVotacaoCargo(cargoId: string): Promise<void> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('votos').delete().eq('cargo_id', cargoId);
+      await supabase.from('registro_dispositivos').delete().eq('cargo_id', cargoId);
+    } catch (e) {
+      console.warn('Erro ao zerar votos do cargo no Supabase:', e);
+    }
+  }
+
+  // Limpa votos locais deste cargo
+  const votos = getLocal<Voto[]>(STORAGE_KEYS.VOTOS, []);
+  const votosRestantes = votos.filter((v) => v.cargo_id !== cargoId);
+  setLocal(STORAGE_KEYS.VOTOS, votosRestantes);
+
+  // Libera dispositivos com novo token
+  await liberarDispositivosCargo(cargoId);
+}
+
 // ======================== REGISTRO DE VOTOS ======================== //
 
 export async function registrarVoto(
@@ -394,10 +564,26 @@ export async function registrarVotosCompletos(
     tipo: 'valido' | 'branco' | 'nulo';
     numeroDigitado: string;
   }>,
+  dispositivoId?: string,
   codigoEleitor?: string
 ): Promise<void> {
+  const devId = dispositivoId || getOrCreateDeviceId();
+  const config = await getConfiguracao();
+
+  // Bloqueio por dispositivo
+  if (config.bloqueio_dispositivo !== false) {
+    for (const v of votosLista) {
+      const jaVotou = await verificarDispositivoJaVotou(v.cargoId, devId);
+      if (jaVotou) {
+        throw new Error('Este aparelho já votou nesta votação.');
+      }
+    }
+  }
+
   for (const v of votosLista) {
     await registrarVoto(v.cargoId, v.candidatoId, v.tipo, v.numeroDigitado);
+    const tokenRodada = config.rodadas_tokens?.[v.cargoId] || 'rodada-1';
+    await registrarVotoDispositivo(v.cargoId, devId, tokenRodada);
   }
 
   if (codigoEleitor) {
@@ -614,19 +800,31 @@ export async function zerarVotacao(): Promise<void> {
   if (isSupabaseConfigured() && supabase) {
     try {
       await supabase.from('votos').delete().neq('id', '0');
+      await supabase.from('registro_dispositivos').delete().neq('id', '0');
     } catch (err) {
       console.warn('Erro ao zerar votos no Supabase:', err);
     }
   }
 
   setLocal(STORAGE_KEYS.VOTOS, []);
+  setLocal(STORAGE_KEYS.DISPOSITIVOS, []);
   await resetarStatusEleitores();
+
+  // Gera novos tokens de rodada para todos os cargos para desbloquear todos os aparelhos
+  const novosTokens: Record<string, string> = {
+    'cargo-presidente': `rodada-${Date.now()}-1`,
+    'cargo-vice': `rodada-${Date.now()}-2`,
+    'cargo-sec-1': `rodada-${Date.now()}-3`,
+    'cargo-sec-2': `rodada-${Date.now()}-4`,
+    'cargo-tesoureiro': `rodada-${Date.now()}-5`,
+  };
 
   // Reseta eleitos e volta ao cargo 1 (Presidente)
   await updateConfiguracao({
     eleitos: [],
     cargo_ativo_id: 'cargo-presidente',
     status: 'aberta',
+    rodadas_tokens: novosTokens,
   });
 
   // Reabilita todos os candidatos

@@ -58,6 +58,16 @@ export interface ConfiguracaoEleicao {
   modo_votacao: 'sequencial_um_por_vez' | 'todos_juntos';
   cargo_ativo_id: string; // Cargo que está sendo votado agora na urna
   eleitos: PessoaEleita[]; // Lista de pessoas já eleitas em etapas anteriores
+  bloqueio_dispositivo?: boolean; // Se ativo, impede que o mesmo celular/navegador vote mais de uma vez na mesma etapa
+  rodadas_tokens?: Record<string, string>; // cargo_id -> token da rodada atual (alterado ao resetar para liberar aparelhos)
+}
+
+export interface RegistroDispositivo {
+  id: string;
+  cargo_id: string;
+  dispositivo_id: string;
+  token_rodada: string;
+  created_at?: string;
 }
 
 export interface ApuracaoCargo {

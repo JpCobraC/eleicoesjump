@@ -6,20 +6,21 @@ import confetti from 'canvas-confetti';
 import {
   Church,
   CheckCircle2,
-  AlertCircle,
   ArrowRight,
   Volume2,
   VolumeX,
-  Lock,
+  Smartphone,
+  Sparkles,
 } from 'lucide-react';
 
-import { Cargo, Candidato, Eleitor, ConfiguracaoEleicao } from '@/types/election';
+import { Cargo, Candidato, ConfiguracaoEleicao } from '@/types/election';
 import {
   getCargos,
   getCandidatos,
   getConfiguracao,
   registrarVotosCompletos,
-  validarEleitor,
+  verificarDispositivoJaVotou,
+  getOrCreateDeviceId,
   initializeLocalStorage,
 } from '@/services/electionService';
 import { playKeyBeep, playUrnaFimSound } from '@/utils/sound';
@@ -28,93 +29,17 @@ export const MobileVotingScreen: React.FC = () => {
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
-  const [eleitorLogado, setEleitorLogado] = useState<Eleitor | null>(null);
-
-  // Código de eleitor no input (se a eleição exigir)
-  const [codigoEleitorInput, setCodigoEleitorInput] = useState('');
-  const [erroLogin, setErroLogin] = useState<string | null>(null);
-  const [validandoEleitor, setValidandoEleitor] = useState(false);
 
   // Estado do voto selecionado
   const [candidatoSelecionado, setCandidatoSelecionado] = useState<Candidato | null>(null);
   const [isVotoBranco, setIsVotoBranco] = useState(false);
   const [modalConfirmacao, setModalConfirmacao] = useState(false);
-  const [votoConcluido, setVotoConcluido] = useState(false);
   const [gravandoVoto, setGravandoVoto] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // Armazena no celular quais cargos este dispositivo já votou
-  const [cargosJaVotadosNesteCelular, setCargosJaVotadosNesteCelular] = useState<string[]>([]);
-
-  // Carrega dados e ouve mudanças na eleição
-  const carregarDados = async () => {
-    initializeLocalStorage();
-    try {
-      const [cfg, cgs, cands] = await Promise.all([
-        getConfiguracao(),
-        getCargos(),
-        getCandidatos(),
-      ]);
-      setConfig(cfg);
-      setCargos(cgs);
-      setCandidatos(cands);
-
-      // Lê do localStorage do celular quais cargos já foram votados
-      if (typeof window !== 'undefined') {
-        const salvos = localStorage.getItem('cargos_votados_dispositivo');
-        if (salvos) {
-          try {
-            setCargosJaVotadosNesteCelular(JSON.parse(salvos));
-          } catch {}
-        }
-      }
-    } catch (err) {
-      console.error('Erro ao carregar votação no celular:', err);
-    }
-  };
-
-  useEffect(() => {
-    let ativo = true;
-
-    const loadInitial = async () => {
-      initializeLocalStorage();
-      try {
-        const [cfg, cgs, cands] = await Promise.all([
-          getConfiguracao(),
-          getCargos(),
-          getCandidatos(),
-        ]);
-        if (ativo) {
-          setConfig(cfg);
-          setCargos(cgs);
-          setCandidatos(cands);
-
-          if (typeof window !== 'undefined') {
-            const salvos = localStorage.getItem('cargos_votados_dispositivo');
-            if (salvos) {
-              try {
-                setCargosJaVotadosNesteCelular(JSON.parse(salvos));
-              } catch {}
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Erro:', err);
-      }
-    };
-
-    loadInitial();
-
-    // Polling contínuo para detectar quando o admin liberar a próxima votação no telão
-    const interval = setInterval(() => {
-      carregarDados();
-    }, 2500);
-
-    return () => {
-      ativo = false;
-      clearInterval(interval);
-    };
-  }, []);
+  // Status de voto deste aparelho para o cargo ativo
+  const [jaVotouNesteAparelho, setJaVotouNesteAparelho] = useState(false);
+  const [verificandoAparelho, setVerificandoAparelho] = useState(true);
 
   const cargoAtivoId = config?.cargo_ativo_id || cargos[0]?.id;
   const cargoAtivo = useMemo(
@@ -127,43 +52,85 @@ export const MobileVotingScreen: React.FC = () => {
     return candidatos.filter((c) => c.cargo_id === cargoAtivo.id);
   }, [candidatos, cargoAtivo]);
 
-  // Verifica se o eleitor já votou nesta votação específica
-  const jaVotouNesteCargo = useMemo(() => {
-    if (!cargoAtivo) return false;
-    if (eleitorLogado?.votou) return true;
-    return cargosJaVotadosNesteCelular.includes(cargoAtivo.id);
-  }, [cargoAtivo, eleitorLogado, cargosJaVotadosNesteCelular]);
-
-  // Autenticação rápida do jovem
-  const handleIdentificarEleitor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErroLogin(null);
-    const clean = codigoEleitorInput.trim().toUpperCase();
-    if (!clean) {
-      setErroLogin('Por favor, informe seu código ou nome.');
-      return;
-    }
-
-    setValidandoEleitor(true);
+  // Carrega dados da eleição e checa se o aparelho já votou nesta rodada
+  const sincronizar = async () => {
     try {
-      const res = await validarEleitor(clean);
-      if (res.valido && res.eleitor) {
-        setEleitorLogado(res.eleitor);
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('eleitor_codigo', res.eleitor.codigo);
-        }
-      } else {
-        setErroLogin(res.mensagem);
+      const [cfg, cgs, cands] = await Promise.all([
+        getConfiguracao(),
+        getCargos(),
+        getCandidatos(),
+      ]);
+      setConfig(cfg);
+      setCargos(cgs);
+      setCandidatos(cands);
+
+      const targetCargoId = cfg.cargo_ativo_id || cgs[0]?.id;
+      if (targetCargoId) {
+        const deviceId = getOrCreateDeviceId();
+        const votou = await verificarDispositivoJaVotou(targetCargoId, deviceId);
+        setJaVotouNesteAparelho(votou);
       }
-    } catch {
-      setErroLogin('Erro ao validar seu código. Tente novamente.');
+    } catch (err) {
+      console.error('Erro ao sincronizar votação:', err);
     } finally {
-      setValidandoEleitor(false);
+      setVerificandoAparelho(false);
     }
   };
 
+  useEffect(() => {
+    let ativo = true;
+
+    const init = async () => {
+      initializeLocalStorage();
+      try {
+        const [cfg, cgs, cands] = await Promise.all([
+          getConfiguracao(),
+          getCargos(),
+          getCandidatos(),
+        ]);
+        if (ativo) {
+          setConfig(cfg);
+          setCargos(cgs);
+          setCandidatos(cands);
+
+          const targetCargoId = cfg.cargo_ativo_id || cgs[0]?.id;
+          if (targetCargoId) {
+            const deviceId = getOrCreateDeviceId();
+            const votou = await verificarDispositivoJaVotou(targetCargoId, deviceId);
+            setJaVotouNesteAparelho(votou);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao inicializar celular:', err);
+      } finally {
+        if (ativo) setVerificandoAparelho(false);
+      }
+    };
+
+    init();
+
+    // Polling rápido a cada 2 segundos para sincronizar liberação de cargos ou desbloqueios pelo admin
+    const interval = setInterval(() => {
+      sincronizar();
+    }, 2000);
+
+    return () => {
+      ativo = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Monitora mudança de cargo ativo para limpar seleções anteriores
+  const [prevCargoAtivoId, setPrevCargoAtivoId] = useState(cargoAtivoId);
+  if (cargoAtivoId !== prevCargoAtivoId) {
+    setPrevCargoAtivoId(cargoAtivoId);
+    setCandidatoSelecionado(null);
+    setIsVotoBranco(false);
+    setModalConfirmacao(false);
+  }
+
   const handleSelecionarCandidato = (cand: Candidato) => {
-    if (cand.inelegivel) return;
+    if (cand.inelegivel || jaVotouNesteAparelho) return;
     playKeyBeep(soundEnabled);
     setCandidatoSelecionado(cand);
     setIsVotoBranco(false);
@@ -171,6 +138,7 @@ export const MobileVotingScreen: React.FC = () => {
   };
 
   const handleSelecionarBranco = () => {
+    if (jaVotouNesteAparelho) return;
     playKeyBeep(soundEnabled);
     setCandidatoSelecionado(null);
     setIsVotoBranco(true);
@@ -178,10 +146,11 @@ export const MobileVotingScreen: React.FC = () => {
   };
 
   const handleConfirmarVoto = async () => {
-    if (!cargoAtivo || gravandoVoto) return;
+    if (!cargoAtivo || gravandoVoto || jaVotouNesteAparelho) return;
     setGravandoVoto(true);
 
     try {
+      const deviceId = getOrCreateDeviceId();
       let tipo: 'valido' | 'branco' | 'nulo';
       let candidatoId: string | null = null;
       let numDigitado = '';
@@ -207,20 +176,13 @@ export const MobileVotingScreen: React.FC = () => {
             numeroDigitado: numDigitado,
           },
         ],
-        eleitorLogado ? eleitorLogado.codigo : undefined
+        deviceId
       );
 
-      // Salva no dispositivo para impedir voto duplicado nesta rodada
-      const novaLista = [...cargosJaVotadosNesteCelular, cargoAtivo.id];
-      setCargosJaVotadosNesteCelular(novaLista);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(
-          'cargos_votados_dispositivo',
-          JSON.stringify(novaLista)
-        );
-      }
+      setJaVotouNesteAparelho(true);
+      setModalConfirmacao(false);
 
-      // Efeitos de sucesso (Som da urna no celular e confetes!)
+      // Efeitos de sucesso (Som oficial de FIM da urna e chuva de confetes)
       await playUrnaFimSound(soundEnabled);
 
       try {
@@ -230,11 +192,10 @@ export const MobileVotingScreen: React.FC = () => {
           origin: { y: 0.7 },
         });
       } catch {}
-
-      setModalConfirmacao(false);
-      setVotoConcluido(true);
-    } catch {
-      alert('Erro ao registrar voto. Verifique a conexão e tente novamente.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao registrar voto.';
+      alert(msg);
+      await sincronizar();
     } finally {
       setGravandoVoto(false);
     }
@@ -251,7 +212,7 @@ export const MobileVotingScreen: React.FC = () => {
             </div>
             <div>
               <div className="text-xs font-black uppercase tracking-wider text-white">
-                {config?.igreja || 'Igreja Local'}
+                {config?.igreja || 'Juventude da Igreja'}
               </div>
               <div className="text-[10px] text-neutral-400">
                 {config?.titulo || 'Eleições da Juventude'}
@@ -263,8 +224,8 @@ export const MobileVotingScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="p-2 rounded-xl bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
-              title={soundEnabled ? 'Silenciar' : 'Ativar Som da Urna'}
+              className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors cursor-pointer"
+              title={soundEnabled ? 'Silenciar som' : 'Ativar som da urna'}
             >
               {soundEnabled ? (
                 <Volume2 className="w-4 h-4 text-emerald-400" />
@@ -277,187 +238,143 @@ export const MobileVotingScreen: React.FC = () => {
       </header>
 
       {/* CONTEÚDO PRINCIPAL NO CELULAR */}
-      <main className="flex-1 max-w-md w-full mx-auto p-4 space-y-4">
-        {/* IDENTIFICAÇÃO DO ELEITOR (SE EXIGIDO) */}
-        {config?.exigir_codigo_eleitor && !eleitorLogado ? (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl space-y-5 animate-scale-up my-auto">
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-950 border border-emerald-800 flex items-center justify-center mx-auto text-emerald-400">
-                <Lock className="w-7 h-7" />
-              </div>
-              <h2 className="text-xl font-black text-white uppercase tracking-wider">
-                Identificação do Jovem
-              </h2>
-              <p className="text-xs text-neutral-400">
-                Digite seu código de eleitor ou sua matrícula para liberar seu voto no celular.
+      <main className="flex-1 max-w-md w-full mx-auto p-4 space-y-4 flex flex-col justify-center">
+        {/* CARD DO CARGO ABERTO NO MOMENTO */}
+        <div className="bg-gradient-to-r from-emerald-950/80 to-neutral-900 border border-emerald-600/60 rounded-3xl p-5 shadow-xl">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-900/80 border border-emerald-500 text-emerald-300 text-[10px] font-bold uppercase tracking-widest">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>Votação Aberta</span>
+            </span>
+            <span className="text-[10px] text-neutral-400 font-mono flex items-center gap-1">
+              <Smartphone className="w-3 h-3 text-emerald-400" />
+              <span>1 voto por aparelho</span>
+            </span>
+          </div>
+
+          <h2 className="text-2xl font-black text-white uppercase tracking-tight">
+            {cargoAtivo?.nome || 'DIRETORIA'}
+          </h2>
+          <p className="text-xs text-neutral-300 mt-0.5">
+            {jaVotouNesteAparelho
+              ? 'Seu voto para este cargo já foi computado neste aparelho!'
+              : 'Toque no candidato para votar:'}
+          </p>
+        </div>
+
+        {/* SE ESTE APARELHO JÁ VOTOU NESTE CARGO */}
+        {jaVotouNesteAparelho ? (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 text-center space-y-4 shadow-xl animate-scale-up my-auto">
+            <div className="w-16 h-16 rounded-full bg-emerald-950 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-950/50">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+            <div>
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-widest mb-1 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-800">
+                <Sparkles className="w-3 h-3" />
+                <span>Voto Confirmado</span>
+              </span>
+              <h3 className="text-xl font-black text-white uppercase tracking-wider mt-1">
+                Voto Registrado!
+              </h3>
+              <p className="text-xs text-neutral-300 mt-1 max-w-xs mx-auto">
+                Seu aparelho já registrou o voto para <strong>{cargoAtivo?.nome}</strong>.
               </p>
             </div>
 
-            {erroLogin && (
-              <div className="p-3 bg-red-950/60 border border-red-800 rounded-xl text-xs text-red-300 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{erroLogin}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleIdentificarEleitor} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-1.5">
-                  Seu Código de Eleitor:
-                </label>
-                <input
-                  type="text"
-                  value={codigoEleitorInput}
-                  onChange={(e) => setCodigoEleitorInput(e.target.value.toUpperCase())}
-                  placeholder="Ex: JUMP-01"
-                  autoFocus
-                  required
-                  className="w-full bg-neutral-950 border-2 border-neutral-700 rounded-2xl p-4 text-center font-mono font-black text-xl uppercase tracking-widest text-emerald-400 focus:outline-none focus:border-emerald-500"
-                />
-                <p className="text-[10px] text-neutral-500 mt-1.5 text-center">
-                  Dica de teste: Use <strong>JUMP-01</strong> até <strong>JUMP-10</strong>
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={validandoEleitor}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-900/30 uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>{validandoEleitor ? 'Validando...' : 'Acessar Votação'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
+            <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 text-xs text-neutral-300 space-y-1">
+              <span className="text-xs font-bold text-amber-300 block">
+                📺 Olhe para o Telão da Igreja
+              </span>
+              <p className="text-[11px] text-neutral-400">
+                Acompanhe o anúncio do vencedor. Assim que a liderança liberar o próximo cargo, esta tela atualizará automaticamente!
+              </p>
+            </div>
           </div>
         ) : (
-          <>
-            {/* CARD DO CARGO ABERTO NO MOMENTO */}
-            <div className="bg-gradient-to-r from-emerald-950/80 to-neutral-900 border border-emerald-600/60 rounded-3xl p-5 shadow-xl">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-900/80 border border-emerald-500 text-emerald-300 text-[10px] font-bold uppercase tracking-widest">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span>Votação Aberta no Telão</span>
-                </span>
-                <span className="text-[10px] text-neutral-400 font-mono">
-                  {cargoAtivo?.digitos || 2} dígitos
-                </span>
+          /* LISTA DE CANDIDATOS DO CARGO PARA ESCOLHER */
+          <div className="space-y-3 pb-6">
+            {verificandoAparelho ? (
+              <div className="p-8 text-center text-neutral-400 text-xs bg-neutral-900 rounded-2xl border border-neutral-800">
+                Carregando candidatos...
               </div>
-
-              <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">
-                {cargoAtivo?.nome || 'DIRETORIA'}
-              </h2>
-              <p className="text-xs text-neutral-300 mt-0.5">
-                {jaVotouNesteCargo
-                  ? 'Você já votou neste cargo. Acompanhe a apuração no telão!'
-                  : 'Toque no candidato desejado para confirmar seu voto:'}
-              </p>
-            </div>
-
-            {/* SE JÁ VOTOU NESTA ETAPA */}
-            {jaVotouNesteCargo || votoConcluido ? (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 text-center space-y-4 shadow-xl animate-fade-in my-6">
-                <div className="w-16 h-16 rounded-full bg-emerald-950 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-950/50">
-                  <CheckCircle2 className="w-10 h-10" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-white uppercase tracking-wider">
-                    Voto Registrado com Sucesso!
-                  </h3>
-                  <p className="text-xs text-neutral-400 mt-1 max-w-xs mx-auto">
-                    Seu voto para <strong>{cargoAtivo?.nome}</strong> já foi computado de forma 100% anônima e segura.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-neutral-950 rounded-2xl border border-neutral-800 text-xs text-neutral-300">
-                  <span className="text-[11px] font-bold text-amber-300 block mb-0.5">
-                    📺 Olhe para o Telão da Igreja
-                  </span>
-                  Acompanhe os resultados sendo projetados ao vivo. A votação para o próximo cargo será liberada em instantes!
-                </div>
+            ) : candidatosDoCargo.length === 0 ? (
+              <div className="p-8 text-center text-neutral-500 text-xs bg-neutral-900 rounded-2xl border border-neutral-800">
+                Nenhum candidato concorrendo para este cargo.
               </div>
             ) : (
-              /* LISTA DE CANDIDATOS DO CARGO PARA O JOVEM ESCOLHER */
-              <div className="space-y-3 pb-6">
-                {candidatosDoCargo.length === 0 ? (
-                  <div className="p-8 text-center text-neutral-500 text-xs bg-neutral-900 rounded-2xl border border-neutral-800">
-                    Nenhum candidato concorrendo para este cargo.
-                  </div>
-                ) : (
-                  candidatosDoCargo.map((cand) => (
-                    <button
-                      key={cand.id}
-                      type="button"
-                      disabled={cand.inelegivel}
-                      onClick={() => handleSelecionarCandidato(cand)}
-                      className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between gap-3.5 group cursor-pointer ${
-                        cand.inelegivel
-                          ? 'bg-neutral-950/60 border-neutral-800 opacity-50 cursor-not-allowed'
-                          : 'bg-neutral-900 border-neutral-800 hover:border-emerald-500 hover:bg-neutral-850 active:scale-[0.98]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        {/* Foto do Candidato */}
-                        <div className="relative w-16 h-20 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-700 shrink-0 shadow-md">
-                          {cand.foto_url ? (
-                            <Image
-                              src={cand.foto_url}
-                              alt={cand.nome}
-                              fill
-                              sizes="80px"
-                              className="object-cover"
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center font-bold text-neutral-500 text-sm">
-                              👤
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="min-w-0">
-                          <span className="inline-block px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700 text-emerald-400 font-mono font-black text-xs mb-1">
-                            Nº {cand.numero}
-                          </span>
-                          <h4 className="text-sm font-black text-white uppercase leading-snug truncate group-hover:text-emerald-300 transition-colors">
-                            {cand.nome}
-                          </h4>
-                          {cand.nome_vice && (
-                            <p className="text-[11px] text-neutral-400 truncate">
-                              Vice: {cand.nome_vice}
-                            </p>
-                          )}
-                          <p className="text-xs text-neutral-400 font-semibold truncate">
-                            {cand.chapa}
-                          </p>
-
-                          {cand.inelegivel && (
-                            <span className="inline-block mt-1 text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-950 border border-red-800 text-red-300">
-                              ⚠️ {cand.motivo_inelegivel || 'Já Eleito'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="shrink-0">
-                        <span className="w-8 h-8 rounded-full bg-neutral-800 group-hover:bg-emerald-600 text-white flex items-center justify-center transition-colors">
-                          <ArrowRight className="w-4 h-4" />
-                        </span>
-                      </div>
-                    </button>
-                  ))
-                )}
-
-                {/* BOTÃO VOTO EM BRANCO */}
+              candidatosDoCargo.map((cand) => (
                 <button
+                  key={cand.id}
                   type="button"
-                  onClick={handleSelecionarBranco}
-                  className="w-full p-4 rounded-2xl bg-neutral-900 border-2 border-dashed border-neutral-700 hover:border-neutral-500 text-center font-bold text-xs uppercase tracking-wider text-neutral-300 hover:text-white transition-all cursor-pointer active:scale-[0.98]"
+                  disabled={cand.inelegivel}
+                  onClick={() => handleSelecionarCandidato(cand)}
+                  className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between gap-3.5 group cursor-pointer ${
+                    cand.inelegivel
+                      ? 'bg-neutral-950/60 border-neutral-800 opacity-50 cursor-not-allowed'
+                      : 'bg-neutral-900 border-neutral-800 hover:border-emerald-500 hover:bg-neutral-850 active:scale-[0.98]'
+                  }`}
                 >
-                  Votar em Branco
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    {/* Foto do Candidato */}
+                    <div className="relative w-16 h-20 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-700 shrink-0 shadow-md">
+                      {cand.foto_url ? (
+                        <Image
+                          src={cand.foto_url}
+                          alt={cand.nome}
+                          fill
+                          sizes="80px"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center font-bold text-neutral-500 text-sm">
+                          👤
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <span className="inline-block px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700 text-emerald-400 font-mono font-black text-xs mb-1">
+                        Nº {cand.numero}
+                      </span>
+                      <h4 className="text-sm font-black text-white uppercase leading-snug truncate group-hover:text-emerald-300 transition-colors">
+                        {cand.nome}
+                      </h4>
+                      {cand.nome_vice && (
+                        <p className="text-[11px] text-neutral-400 truncate">
+                          Vice: {cand.nome_vice}
+                        </p>
+                      )}
+                      <p className="text-xs text-neutral-400 font-semibold truncate">
+                        {cand.chapa}
+                      </p>
+
+                      {cand.inelegivel && (
+                        <span className="inline-block mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-950 border border-red-800 text-red-300">
+                          ⚠️ {cand.motivo_inelegivel || 'Já Eleito'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <span className="w-8 h-8 rounded-full bg-neutral-800 group-hover:bg-emerald-600 text-white flex items-center justify-center transition-colors">
+                      <ArrowRight className="w-4 h-4" />
+                    </span>
+                  </div>
                 </button>
-              </div>
+              ))
             )}
-          </>
+
+            {/* BOTÃO VOTO EM BRANCO */}
+            <button
+              type="button"
+              onClick={handleSelecionarBranco}
+              className="w-full p-4 rounded-2xl bg-neutral-900 border-2 border-dashed border-neutral-700 hover:border-neutral-500 text-center font-bold text-xs uppercase tracking-wider text-neutral-300 hover:text-white transition-all cursor-pointer active:scale-[0.98]"
+            >
+              Votar em Branco
+            </button>
+          </div>
         )}
       </main>
 
@@ -516,7 +433,7 @@ export const MobileVotingScreen: React.FC = () => {
             ) : null}
 
             <p className="text-xs text-neutral-400 font-medium">
-              Deseja confirmar este voto? Esta ação é definitiva para este cargo.
+              Deseja confirmar este voto? Seu aparelho não poderá votar novamente para este cargo.
             </p>
 
             <div className="grid grid-cols-2 gap-3 pt-2">
@@ -534,7 +451,7 @@ export const MobileVotingScreen: React.FC = () => {
                 onClick={handleConfirmarVoto}
                 className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-900/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                <span>{gravandoVoto ? 'Gravando...' : 'CONFIRMA'}</span>
+                <span>{gravandoVoto ? 'Gravando...' : 'CONFIRMAR'}</span>
                 <CheckCircle2 className="w-4 h-4" />
               </button>
             </div>

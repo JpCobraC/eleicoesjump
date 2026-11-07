@@ -12,6 +12,14 @@ export const INITIAL_CONFIG: ConfiguracaoEleicao = {
   modo_votacao: 'sequencial_um_por_vez',
   cargo_ativo_id: 'cargo-presidente',
   eleitos: [],
+  bloqueio_dispositivo: true,
+  rodadas_tokens: {
+    'cargo-presidente': 'rodada-1',
+    'cargo-vice': 'rodada-1',
+    'cargo-sec-1': 'rodada-1',
+    'cargo-sec-2': 'rodada-1',
+    'cargo-tesoureiro': 'rodada-1',
+  },
 };
 
 // Os 5 cargos solicitados na ordem oficial

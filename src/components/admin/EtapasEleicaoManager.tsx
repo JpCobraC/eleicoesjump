@@ -8,18 +8,22 @@ import {
   revogarEleito,
   liberarVotacaoCargo,
   pausarVotacao,
+  liberarDispositivosCargo,
+  zerarVotacaoCargo,
 } from '@/services/electionService';
 import {
   Trophy,
   CheckCircle2,
   Clock,
   ArrowRight,
-  ShieldAlert,
   RotateCcw,
   Sparkles,
   Play,
   Pause,
   ExternalLink,
+  Smartphone,
+  Trash2,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface EtapasEleicaoManagerProps {
@@ -95,6 +99,36 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
   const handleRevogar = async (nome: string, cargoNome: string) => {
     if (confirm(`Revogar a eleição de ${nome} para ${cargoNome}? A pessoa voltará a ser elegível para os outros cargos.`)) {
       await revogarEleito(nome);
+      onAtualizar();
+    }
+  };
+
+  const handleDesbloquearAparelhos = async (cargoId: string, nomeCargo: string) => {
+    if (
+      confirm(
+        `Deseja DESBLOQUEAR todos os aparelhos/celulares para votar novamente em "${nomeCargo}"?\n\n` +
+        `Isso atualiza a rodada e permite que qualquer aparelho possa votar de novo, sem apagar os votos já computados.`
+      )
+    ) {
+      setSalvando(true);
+      await liberarDispositivosCargo(cargoId);
+      setSalvando(false);
+      alert(`Aparelhos liberados com sucesso para a votação de ${nomeCargo}!`);
+      onAtualizar();
+    }
+  };
+
+  const handleZerarVotosCargo = async (cargoId: string, nomeCargo: string) => {
+    if (
+      confirm(
+        `⚠️ ATENÇÃO: Deseja ZERAR OS VOTOS de "${nomeCargo}" e liberar todos os celulares para começar do zero?\n\n` +
+        `Esta ação apaga os votos recebidos apenas para ${nomeCargo}, mantendo intactos os cargos anteriores já eleitos.`
+      )
+    ) {
+      setSalvando(true);
+      await zerarVotacaoCargo(cargoId);
+      setSalvando(false);
+      alert(`Votação de ${nomeCargo} zerada e celulares liberados para reiniciar!`);
       onAtualizar();
     }
   };
@@ -251,6 +285,29 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
                         <span>Retomar Votação</span>
                       </button>
                     )}
+
+                    {/* Controles de Dispositivos e Reinício */}
+                    <div className="pt-2 border-t border-neutral-800 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => handleDesbloquearAparelhos(cargo.id, cargo.nome)}
+                        className="w-full bg-neutral-950 hover:bg-neutral-800 text-emerald-400 border border-emerald-900/60 font-bold py-1 px-2 rounded-lg text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                        title="Permite que todos os celulares votem novamente neste cargo"
+                      >
+                        <Smartphone className="w-3 h-3" />
+                        <span>Desbloquear Aparelhos</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleZerarVotosCargo(cargo.id, cargo.nome)}
+                        className="w-full bg-neutral-950 hover:bg-red-950/60 text-neutral-400 hover:text-red-400 border border-neutral-800 font-bold py-1 px-2 rounded-lg text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                        title="Zera apenas os votos deste cargo e libera os celulares para recomeçar do zero"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Zerar Votos Deste Cargo</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 

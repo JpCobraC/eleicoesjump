@@ -30,8 +30,8 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
   const [status, setStatus] = useState<'aguardando' | 'aberta' | 'encerrada'>(
     config?.status || 'aberta'
   );
-  const [exigirCodigo, setExigirCodigo] = useState(
-    config?.exigir_codigo_eleitor ?? true
+  const [bloqueioDispositivo, setBloqueioDispositivo] = useState(
+    config?.bloqueio_dispositivo ?? true
   );
   const [codigoMesario, setCodigoMesario] = useState(
     config?.codigo_mesario || '1234'
@@ -53,7 +53,8 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
       igreja,
       subtitulo,
       status,
-      exigir_codigo_eleitor: exigirCodigo,
+      exigir_codigo_eleitor: false,
+      bloqueio_dispositivo: bloqueioDispositivo,
       codigo_mesario: codigoMesario,
       modo_votacao: modoVotacao,
     });
@@ -286,21 +287,21 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
             </select>
           </div>
 
-          {/* Modo de Controle de Acesso */}
+          {/* Bloqueio por Aparelho */}
           <div>
             <label className="block text-neutral-400 font-bold uppercase mb-1">
-              Modo da Cabine de Voto:
+              Bloqueio por Aparelho (Celular):
             </label>
             <select
-              value={exigirCodigo ? 'sim' : 'nao'}
-              onChange={(e) => setExigirCodigo(e.target.value === 'sim')}
+              value={bloqueioDispositivo ? 'sim' : 'nao'}
+              onChange={(e) => setBloqueioDispositivo(e.target.value === 'sim')}
               className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
             >
               <option value="sim">
-                🔒 Exigir Código / Liberação do Mesário
+                📱 Ativo: 1 voto por celular em cada cargo
               </option>
               <option value="nao">
-                🔓 Terminal Livre (Qualquer jovem vota direto)
+                🔓 Livre: Votos ilimitados por aparelho (para testes)
               </option>
             </select>
           </div>
