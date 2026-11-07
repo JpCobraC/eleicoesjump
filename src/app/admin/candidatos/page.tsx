@@ -77,7 +77,8 @@ export default function AdminCandidatosPage() {
         sessionStorage.setItem('admin_auth', 'true');
       }
     } else {
-      setErroLogin('Senha de acesso incorreta. A senha é jumpelections@2026.');
+      setErroLogin('Senha incorreta. Tente novamente.');
+      setSenhaInput('');
     }
   };
 
@@ -108,7 +109,7 @@ export default function AdminCandidatosPage() {
                 type="password"
                 value={senhaInput}
                 onChange={(e) => setSenhaInput(e.target.value)}
-                placeholder="Senha Administrativa (jumpelections@2026)"
+                placeholder="Digite a senha administrativa"
                 autoFocus
                 className="w-full bg-neutral-950 border border-neutral-700 rounded-xl py-3 px-4 text-center font-mono text-lg text-white tracking-widest focus:outline-none focus:border-emerald-500"
               />

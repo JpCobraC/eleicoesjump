@@ -315,7 +315,7 @@ export const ConfiguracoesManager: React.FC<ConfiguracoesManagerProps> = ({
               type="text"
               value={codigoMesario}
               onChange={(e) => setCodigoMesario(e.target.value)}
-              placeholder="Ex: jumpelections@2026"
+              placeholder="Digite a senha administrativa"
               required
               className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2.5 text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
             />
