@@ -12,6 +12,7 @@ import {
   Smartphone,
   Sparkles,
   Clock,
+  Crown,
 } from 'lucide-react';
 
 import { Cargo, Candidato, ConfiguracaoEleicao } from '@/types/election';
@@ -22,6 +23,7 @@ import {
   registrarVotosCompletos,
   verificarDispositivoJaVotou,
   getOrCreateDeviceId,
+  updateConfiguracao,
   initializeLocalStorage,
 } from '@/services/electionService';
 import { playKeyBeep, playUrnaFimSound } from '@/utils/sound';
@@ -42,6 +44,25 @@ export const MobileVotingScreen: React.FC = () => {
   // Status de voto deste aparelho para o cargo ativo
   const [jaVotouNesteAparelho, setJaVotouNesteAparelho] = useState(false);
   const [verificandoAparelho, setVerificandoAparelho] = useState(true);
+  const [tempoMobileAgora, setTempoMobileAgora] = useState<number>(0);
+
+  // Monitora contagem regressiva e auto-abertura no celular
+  useEffect(() => {
+    if (config?.status !== 'aguardando') return;
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setTempoMobileAgora(now);
+      if (config.eleitos && config.eleitos.length > 0) {
+        const maisRecente = config.eleitos[config.eleitos.length - 1];
+        const decorrido = now - new Date(maisRecente.eleito_em).getTime();
+        if (decorrido >= 20000 && config.cargo_ativo_id) {
+          updateConfiguracao({ status: 'aberta' }).catch(() => {});
+          setConfig((prev) => (prev ? { ...prev, status: 'aberta' } : null));
+        }
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [config?.status, config?.eleitos, config?.cargo_ativo_id]);
 
   const cargoAtivoId = config?.cargo_ativo_id || cargos[0]?.id;
   const cargoAtivo = useMemo(
@@ -71,6 +92,17 @@ export const MobileVotingScreen: React.FC = () => {
         const deviceId = getOrCreateDeviceId();
         const votou = await verificarDispositivoJaVotou(targetCargoId, deviceId);
         setJaVotouNesteAparelho(votou);
+      }
+
+      // Auto-avanço no celular: Se está aguardando e já passaram os 20s de celebração, abre automaticamente
+      if (cfg.status === 'aguardando' && cfg.eleitos && cfg.eleitos.length > 0) {
+        const maisRecente = cfg.eleitos[cfg.eleitos.length - 1];
+        const tempoDecorrido = Date.now() - new Date(maisRecente.eleito_em).getTime();
+        if (tempoDecorrido >= 20000 && cfg.cargo_ativo_id) {
+          updateConfiguracao({ status: 'aberta' }).catch(() => {});
+          cfg.status = 'aberta';
+          setConfig({ ...cfg });
+        }
       }
     } catch (err) {
       console.error('Erro ao sincronizar votação:', err);
@@ -308,34 +340,90 @@ export const MobileVotingScreen: React.FC = () => {
         </div>
 
         {/* SE A VOTAÇÃO ESTÁ EM ESPERA (AGUARDANDO O ADMIN INICIAR) */}
-        {config?.status === 'aguardando' ? (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 text-center space-y-4 shadow-xl animate-scale-up my-auto">
-            <div className="w-16 h-16 rounded-full bg-amber-950/70 border-2 border-amber-500 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-950/50">
-              <Clock className="w-8 h-8 animate-pulse" />
-            </div>
-            <div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/70 border border-amber-700/60 text-amber-300 text-[10px] font-bold uppercase tracking-wider mb-2">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Votação em Espera</span>
-              </span>
-              <h3 className="text-xl font-black text-white uppercase tracking-wider mt-1">
-                Aguardando a Mesa
-              </h3>
-              <p className="text-xs text-neutral-300 mt-1 max-w-xs mx-auto">
-                A votação para <strong>{cargoAtivo?.nome || 'PRESIDENTE'}</strong> ainda não foi liberada pela liderança.
-              </p>
-            </div>
+        {config?.status === 'aguardando' ? (() => {
+          const ultimoEleito =
+            config?.eleitos && config.eleitos.length > 0
+              ? config.eleitos[config.eleitos.length - 1]
+              : null;
+          const eleitoEm = ultimoEleito ? new Date(ultimoEleito.eleito_em).getTime() : 0;
+          const tempoDecorrido = tempoMobileAgora ? tempoMobileAgora - eleitoEm : 0;
+          const emCelebracao = ultimoEleito && tempoDecorrido < 20000;
+          const segRestantes = emCelebracao
+            ? Math.max(1, Math.ceil((20000 - tempoDecorrido) / 1000))
+            : 0;
 
-            <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 text-xs text-neutral-300 space-y-1">
-              <span className="text-xs font-bold text-emerald-400 block">
-                📺 Olhe para o Telão
-              </span>
-              <p className="text-[11px] text-neutral-400">
-                Assim que a mesa liberar a votação no telão, a cédula aparecerá na tela do seu celular automaticamente!
-              </p>
+          if (emCelebracao && ultimoEleito) {
+            return (
+              <div className="bg-neutral-900 border border-emerald-500/80 rounded-3xl p-6 text-center space-y-4 shadow-xl animate-scale-up my-auto">
+                <div className="w-14 h-14 rounded-full bg-amber-950/80 border-2 border-amber-500 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-950/50">
+                  <Crown className="w-7 h-7 fill-current" />
+                </div>
+                <div>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/70 border border-amber-700/60 text-amber-300 text-[10px] font-bold uppercase tracking-wider mb-2">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Eleito(a) Proclamado(a)</span>
+                  </span>
+                  <div className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest mt-1">
+                    {ultimoEleito.cargo_nome}:
+                  </div>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tight mt-0.5">
+                    {ultimoEleito.nome}
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    {ultimoEleito.votos} votos recebidos
+                  </p>
+                </div>
+
+                <div className="p-4 bg-emerald-950/80 rounded-2xl border border-emerald-500/60 text-center space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-300">
+                    <Clock className="w-4 h-4 text-emerald-400 animate-spin" />
+                    <span>Votação para {cargoAtivo?.nome} abrirá em:</span>
+                  </div>
+                  <div className="text-3xl font-mono font-black text-white">
+                    {segRestantes}s
+                  </div>
+                  <div className="w-full h-2 bg-neutral-900 rounded-full overflow-hidden border border-emerald-900">
+                    <div
+                      className="h-full bg-emerald-400 transition-all duration-300 ease-linear rounded-full"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, (segRestantes / 20) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 text-center space-y-4 shadow-xl animate-scale-up my-auto">
+              <div className="w-16 h-16 rounded-full bg-amber-950/70 border-2 border-amber-500 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-950/50">
+                <Clock className="w-8 h-8 animate-pulse" />
+              </div>
+              <div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/70 border border-amber-700/60 text-amber-300 text-[10px] font-bold uppercase tracking-wider mb-2">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Votação em Espera</span>
+                </span>
+                <h3 className="text-xl font-black text-white uppercase tracking-wider mt-1">
+                  Aguardando a Mesa
+                </h3>
+                <p className="text-xs text-neutral-300 mt-1 max-w-xs mx-auto">
+                  A votação para <strong>{cargoAtivo?.nome || 'PRESIDENTE'}</strong> ainda não foi liberada pela liderança.
+                </p>
+              </div>
+
+              <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 text-xs text-neutral-300 space-y-1">
+                <span className="text-xs font-bold text-emerald-400 block">
+                  📺 Olhe para o Telão
+                </span>
+                <p className="text-[11px] text-neutral-400">
+                  Assim que a mesa liberar a votação no telão, a cédula aparecerá na tela do seu celular automaticamente!
+                </p>
+              </div>
             </div>
-          </div>
-        ) : jaVotouNesteAparelho ? (
+          );
+        })() : jaVotouNesteAparelho ? (
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 text-center space-y-4 shadow-xl animate-scale-up my-auto">
             <div className="w-16 h-16 rounded-full bg-emerald-950 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-950/50">
               <CheckCircle2 className="w-10 h-10" />

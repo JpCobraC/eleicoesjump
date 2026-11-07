@@ -840,7 +840,7 @@ export async function proclamarEleitoEAvancar(
 
   notifyRealtimeChange('PROCLAMADO');
 
-  // Agenda para abrir a próxima eleição automaticamente após exatamente 40 segundos de exibição do eleito
+  // Agenda para abrir a próxima eleição automaticamente após exatamente 20 segundos de exibição do eleito
   if (proximoCargo && typeof window !== 'undefined') {
     setTimeout(async () => {
       try {
@@ -850,9 +850,9 @@ export async function proclamarEleitoEAvancar(
           notifyRealtimeChange('INICIOU_PROXIMO');
         }
       } catch (err) {
-        console.error('Erro ao abrir próxima eleição após 40s:', err);
+        console.error('Erro ao abrir próxima eleição após 20s:', err);
       }
-    }, 40000);
+    }, 20000);
   }
 
   return {

@@ -10,6 +10,7 @@ import {
   pausarVotacao,
   liberarDispositivosCargo,
   zerarVotacaoCargo,
+  updateConfiguracao,
 } from '@/services/electionService';
 import {
   Trophy,
@@ -74,7 +75,7 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
       if (resultado.proximoCargo) {
         setMensagemSucesso({
           titulo: `🎉 ${nomeVencedor} PROCLAMADO(A) ELEITO(A)!`,
-          subtitulo: `O telão e os resultados estão celebrando com fogos por 40 segundos. A votação para "${resultado.proximoCargo.nome}" abrirá automaticamente na urna, celulares e telão assim que a contagem terminar!`,
+          subtitulo: `O telão e os resultados estão celebrando com fogos por 20 segundos. A votação para "${resultado.proximoCargo.nome}" abrirá automaticamente na urna, celulares e telão assim que a contagem terminar (ou clique em Abrir Votação Agora)!`,
         });
       } else {
         setMensagemSucesso({
@@ -157,7 +158,7 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
     <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl space-y-6">
       {/* Notificação Não-Bloqueante de Sucesso / Contagem Regressiva */}
       {mensagemSucesso && (
-        <div className="p-4 rounded-2xl bg-emerald-950/90 border border-emerald-500 flex items-start justify-between gap-4 animate-scale-up">
+        <div className="p-4 rounded-2xl bg-emerald-950/90 border border-emerald-500 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-scale-up">
           <div className="space-y-1">
             <h3 className="text-base font-black text-emerald-300 uppercase tracking-wide">
               {mensagemSucesso.titulo}
@@ -166,13 +167,27 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
               {mensagemSucesso.subtitulo}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setMensagemSucesso(null)}
-            className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider cursor-pointer border border-neutral-700 shrink-0"
-          >
-            Entendido
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={async () => {
+                await updateConfiguracao({ status: 'aberta' });
+                setMensagemSucesso(null);
+                onAtualizar();
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider cursor-pointer border border-emerald-400 shadow-lg shadow-emerald-950/50 flex items-center gap-1.5"
+            >
+              <span>Abrir Votação Agora</span>
+              <span>⏩</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMensagemSucesso(null)}
+              className="px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold text-xs uppercase tracking-wider cursor-pointer border border-neutral-700"
+            >
+              Fechar
+            </button>
+          </div>
         </div>
       )}
 

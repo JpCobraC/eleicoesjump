@@ -46,7 +46,7 @@ export default function ResultadosPage() {
     proximoCargo?: Cargo;
     expiraEm: number;
   } | null>(null);
-  const [segundosRestantes, setSegundosRestantes] = useState<number>(40);
+  const [segundosRestantes, setSegundosRestantes] = useState<number>(20);
   const isFetchingRef = useRef(false);
 
   // Efeito de fogos de artifício
@@ -115,13 +115,13 @@ export default function ResultadosPage() {
       setCandidatos(cands);
       setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR'));
 
-      // Verifica se houve eleito recentemente para exibir celebração de 40s
+      // Verifica se houve eleito recentemente para exibir celebração de 20s
       const totalEleitos = cfg.eleitos?.length || 0;
       if (totalEleitos > 0) {
         const maisRecente = cfg.eleitos[totalEleitos - 1];
         const eleitoEmMs = new Date(maisRecente.eleito_em).getTime();
         const tempoDecorridoMs = Date.now() - eleitoEmMs;
-        const TEMPO_ESPERA_MS = 40 * 1000;
+        const TEMPO_ESPERA_MS = 20 * 1000;
 
         if (tempoDecorridoMs < TEMPO_ESPERA_MS) {
           const candObj = cands.find(
@@ -683,7 +683,7 @@ export default function ResultadosPage() {
               </div>
             </div>
 
-            {/* Contador Regressivo de 40s para Abrir a Próxima Votação */}
+            {/* Contador Regressivo de 20s para Abrir a Próxima Votação */}
             <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/70 text-center space-y-2">
               <div className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-300">
                 <Clock className="w-4 h-4 text-emerald-400 animate-spin" />
@@ -700,13 +700,13 @@ export default function ResultadosPage() {
                 </div>
               )}
 
-              {/* Barra de progresso dos 40 segundos */}
+              {/* Barra de progresso dos 20 segundos */}
               {eleitoCelebrando.proximoCargo && (
                 <div className="w-full h-2.5 bg-neutral-900 rounded-full overflow-hidden border border-emerald-900">
                   <div
                     className="h-full bg-emerald-400 transition-all duration-300 ease-linear rounded-full"
                     style={{
-                      width: `${Math.min(100, Math.max(0, (segundosRestantes / 40) * 100))}%`,
+                      width: `${Math.min(100, Math.max(0, (segundosRestantes / 20) * 100))}%`,
                     }}
                   />
                 </div>
