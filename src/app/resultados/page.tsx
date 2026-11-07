@@ -31,10 +31,7 @@ export default function ResultadosPage() {
   const [carregando, setCarregando] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<string>('');
-  const [votingUrl] = useState<string>(() => {
-    if (typeof window !== 'undefined') return window.location.origin;
-    return '';
-  });
+  const votingUrl = 'https://eleicoesjump.vercel.app/';
 
   const carregarDados = async (showLoading = false) => {
     if (showLoading) setCarregando(true);
