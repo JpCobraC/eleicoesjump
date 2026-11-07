@@ -418,7 +418,7 @@ export default function TelaoPage() {
         {/* BANNER COM QR CODE DE VOTAÇÃO NO TELÃO E O CARGO ATIVO */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center mb-6">
           {/* LADO ESQUERDO: QR CODE FIXO PARA OS JOVENS APONTAREM A CÂMERA */}
-          <div className="lg:col-span-5 xl:col-span-4 bg-gradient-to-b from-neutral-900 to-neutral-950 border-2 border-emerald-500/70 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center">
+          <div className="lg:col-span-5 xl:col-span-5 bg-gradient-to-b from-neutral-900 to-neutral-950 border-2 border-emerald-500/70 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950 border border-emerald-600 text-emerald-300 text-xs font-black uppercase tracking-wider mb-4">
               <Smartphone className="w-4 h-4 text-emerald-400" />
               <span>Votação pelo Celular</span>
@@ -426,28 +426,31 @@ export default function TelaoPage() {
 
             {/* QR CODE RESPONSIVO AMPLIADO */}
             <div
-              className="p-4 bg-white rounded-3xl shadow-2xl cursor-pointer hover:scale-105 transition-transform ring-4 ring-emerald-500/30"
+              className="p-5 bg-white rounded-3xl shadow-2xl cursor-pointer hover:scale-105 transition-transform ring-4 ring-emerald-500/40 relative group"
               onClick={() => setQrCodeAmpliado(true)}
               title="Clique para abrir em tela cheia"
             >
               <QRCodeSVG
                 value={votingUrl}
-                size={250}
-                level="H"
+                size={340}
+                level="M"
                 includeMargin={false}
               />
+              <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-lg bg-black/80 text-white text-[10px] font-bold uppercase tracking-wider opacity-90 group-hover:opacity-100">
+                🔍 Ampliar
+              </span>
             </div>
 
-            <p className="text-sm font-black uppercase text-white mt-4 tracking-wider">
+            <p className="text-base font-black uppercase text-white mt-4 tracking-wider">
               Aponte a câmera para votar
             </p>
-            <p className="text-xs text-emerald-400 font-mono font-bold mt-1 break-all select-all">
+            <p className="text-sm text-emerald-400 font-mono font-bold mt-1 break-all select-all">
               {votingUrl}
             </p>
           </div>
 
           {/* LADO DIREITO: CARGO EM DESTAQUE E TOTAL DE VOTOS */}
-          <div className="lg:col-span-7 xl:col-span-8 flex flex-col justify-center text-center lg:text-left">
+          <div className="lg:col-span-7 xl:col-span-7 flex flex-col justify-center text-center lg:text-left">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-bold uppercase tracking-widest mb-3 shadow-lg shadow-emerald-950/50 w-fit mx-auto lg:mx-0">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
               <span>{config?.status === 'aberta' ? 'Votação Liberada Agora' : 'Votação em Espera'}</span>
@@ -638,33 +641,33 @@ export default function TelaoPage() {
           className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 animate-fade-in cursor-pointer"
           onClick={() => setQrCodeAmpliado(false)}
         >
-          <div className="text-center space-y-5 max-w-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-950 border border-emerald-600 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-              <Smartphone className="w-4 h-4" />
-              <span>Aponte a câmera do celular</span>
+          <div className="text-center space-y-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-emerald-950 border border-emerald-600 text-emerald-400 text-sm font-bold uppercase tracking-wider">
+              <Smartphone className="w-5 h-5" />
+              <span>Aponte a câmera do celular para votar</span>
             </div>
 
-            <h3 className="text-3xl md:text-4xl font-black text-white uppercase tracking-wider">
+            <h3 className="text-4xl md:text-5xl font-black text-white uppercase tracking-wider">
               {cargoAtivoObj?.nome}
             </h3>
 
-            <div className="p-6 bg-white rounded-3xl shadow-2xl mx-auto w-fit ring-8 ring-emerald-500/20">
+            <div className="p-8 bg-white rounded-3xl shadow-2xl mx-auto w-fit ring-8 ring-emerald-500/30">
               <QRCodeSVG
                 value={votingUrl}
-                size={360}
-                level="H"
+                size={480}
+                level="M"
                 includeMargin={false}
               />
             </div>
 
-            <div className="font-mono text-base text-emerald-400 font-black break-all select-all">
+            <div className="font-mono text-lg text-emerald-400 font-black break-all select-all">
               {votingUrl}
             </div>
 
             <button
               type="button"
               onClick={() => setQrCodeAmpliado(false)}
-              className="px-8 py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+              className="px-8 py-3.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-neutral-700"
             >
               Fechar Tela de QR Code
             </button>
