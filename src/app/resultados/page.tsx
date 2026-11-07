@@ -44,8 +44,9 @@ export default function ResultadosPage() {
     eleito: PessoaEleita;
     candidato?: Candidato;
     proximoCargo?: Cargo;
-    segundosRestantes: number;
+    expiraEm: number;
   } | null>(null);
+  const [segundosRestantes, setSegundosRestantes] = useState<number>(40);
   const isFetchingRef = useRef(false);
 
   // Efeito de fogos de artifício
@@ -114,14 +115,15 @@ export default function ResultadosPage() {
       setCandidatos(cands);
       setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR'));
 
-      // Verifica se houve eleito recentemente para exibir celebração de 20s
+      // Verifica se houve eleito recentemente para exibir celebração de 40s
       const totalEleitos = cfg.eleitos?.length || 0;
       if (totalEleitos > 0) {
         const maisRecente = cfg.eleitos[totalEleitos - 1];
-        const tempoDecorridoMs = Date.now() - new Date(maisRecente.eleito_em).getTime();
+        const eleitoEmMs = new Date(maisRecente.eleito_em).getTime();
+        const tempoDecorridoMs = Date.now() - eleitoEmMs;
+        const TEMPO_ESPERA_MS = 40 * 1000;
 
-        if (tempoDecorridoMs < 20000) {
-          const segRestantes = Math.max(1, Math.ceil((20000 - tempoDecorridoMs) / 1000));
+        if (tempoDecorridoMs < TEMPO_ESPERA_MS) {
           const candObj = cands.find(
             (c) =>
               c.id === maisRecente.candidato_id ||
@@ -129,18 +131,37 @@ export default function ResultadosPage() {
           );
           const proxCargo = cgs.find((c) => c.id === cfg.cargo_ativo_id);
 
-          setEleitoCelebrando({
-            eleito: maisRecente,
-            candidato: candObj,
-            proximoCargo: proxCargo,
-            segundosRestantes: segRestantes,
+          setEleitoCelebrando((prev) => {
+            if (
+              prev &&
+              prev.eleito.nome === maisRecente.nome &&
+              prev.eleito.cargo_id === maisRecente.cargo_id
+            ) {
+              return prev;
+            }
+            return {
+              eleito: maisRecente,
+              candidato: candObj,
+              proximoCargo: proxCargo,
+              expiraEm: eleitoEmMs + TEMPO_ESPERA_MS,
+            };
           });
+
+          setSegundosRestantes(Math.max(1, Math.ceil((eleitoEmMs + TEMPO_ESPERA_MS - Date.now()) / 1000)));
 
           if (maisRecente.nome !== ultimoVencedorProclamado) {
             setUltimoVencedorProclamado(maisRecente.nome);
             dispararFogos();
           }
+        } else {
+          // Já se passaram mais de 40 segundos
+          if (cfg.status === 'aguardando' && cfg.cargo_ativo_id) {
+            updateConfiguracao({ status: 'aberta' }).catch(() => {});
+          }
+          setEleitoCelebrando(null);
         }
+      } else {
+        setEleitoCelebrando(null);
       }
     } catch (err) {
       console.error('Erro ao atualizar resultados:', err);
@@ -150,29 +171,25 @@ export default function ResultadosPage() {
     }
   }, [ultimoVencedorProclamado, dispararFogos]);
 
-  // Contagem regressiva dos 20 segundos na tela
+  // Contagem regressiva dos 40 segundos na tela
   useEffect(() => {
     if (!eleitoCelebrando) return;
 
-    const timer = setInterval(() => {
-      setEleitoCelebrando((prev) => {
-        if (!prev) return null;
-        if (prev.segundosRestantes <= 1) {
-          // 20 segundos encerrados: abre automaticamente a próxima votação!
-          if (prev.proximoCargo && config?.status === 'aguardando') {
-            updateConfiguracao({ status: 'aberta' }).catch(() => {});
-          }
-          return null;
-        }
-        return {
-          ...prev,
-          segundosRestantes: prev.segundosRestantes - 1,
-        };
-      });
-    }, 1000);
+    const interval = setInterval(() => {
+      const msRestantes = eleitoCelebrando.expiraEm - Date.now();
+      const seg = Math.max(0, Math.ceil(msRestantes / 1000));
+      setSegundosRestantes(seg);
 
-    return () => clearInterval(timer);
-  }, [eleitoCelebrando, config]);
+      if (msRestantes <= 0) {
+        if (eleitoCelebrando.proximoCargo) {
+          updateConfiguracao({ status: 'aberta' }).catch(() => {});
+        }
+        setEleitoCelebrando(null);
+      }
+    }, 250);
+
+    return () => clearInterval(interval);
+  }, [eleitoCelebrando]);
 
   useEffect(() => {
     const timerInicial = setTimeout(() => {
@@ -666,7 +683,7 @@ export default function ResultadosPage() {
               </div>
             </div>
 
-            {/* Contador Regressivo de 20s para Abrir a Próxima Votação */}
+            {/* Contador Regressivo de 40s para Abrir a Próxima Votação */}
             <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/70 text-center space-y-2">
               <div className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-300">
                 <Clock className="w-4 h-4 text-emerald-400 animate-spin" />
@@ -679,17 +696,17 @@ export default function ResultadosPage() {
 
               {eleitoCelebrando.proximoCargo && (
                 <div className="text-3xl sm:text-4xl font-mono font-black text-white">
-                  {eleitoCelebrando.segundosRestantes}s
+                  {segundosRestantes}s
                 </div>
               )}
 
-              {/* Barra de progresso dos 20 segundos */}
+              {/* Barra de progresso dos 40 segundos */}
               {eleitoCelebrando.proximoCargo && (
                 <div className="w-full h-2.5 bg-neutral-900 rounded-full overflow-hidden border border-emerald-900">
                   <div
-                    className="h-full bg-emerald-400 transition-all duration-1000 ease-linear rounded-full"
+                    className="h-full bg-emerald-400 transition-all duration-300 ease-linear rounded-full"
                     style={{
-                      width: `${(eleitoCelebrando.segundosRestantes / 20) * 100}%`,
+                      width: `${Math.min(100, Math.max(0, (segundosRestantes / 40) * 100))}%`,
                     }}
                   />
                 </div>

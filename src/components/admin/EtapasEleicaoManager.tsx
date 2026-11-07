@@ -42,6 +42,10 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
   const [modalProclamar, setModalProclamar] = useState(false);
   const [cargoParaProclamar, setCargoParaProclamar] = useState<Cargo | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [mensagemSucesso, setMensagemSucesso] = useState<{
+    titulo: string;
+    subtitulo: string;
+  } | null>(null);
 
   const eleitos = config?.eleitos || [];
   const cargoAtivoId = config?.cargo_ativo_id || cargos[0]?.id;
@@ -68,15 +72,15 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
       onAtualizar();
 
       if (resultado.proximoCargo) {
-        alert(
-          `🎉 ${nomeVencedor} PROCLAMADO(A) ELEITO(A)!\n\n` +
-          `A eleição para "${resultado.proximoCargo.nome}" foi INICIADA AUTOMATICAMENTE na urna, nos celulares e no telão!`
-        );
+        setMensagemSucesso({
+          titulo: `🎉 ${nomeVencedor} PROCLAMADO(A) ELEITO(A)!`,
+          subtitulo: `O telão e os resultados estão celebrando com fogos por 40 segundos. A votação para "${resultado.proximoCargo.nome}" abrirá automaticamente na urna, celulares e telão assim que a contagem terminar!`,
+        });
       } else {
-        alert(
-          `🎉 ${nomeVencedor} ELEITO(A)!\n\n` +
-          `Todas as 5 etapas da diretoria foram concluídas com sucesso!`
-        );
+        setMensagemSucesso({
+          titulo: `🎉 ${nomeVencedor} ELEITO(A)!`,
+          subtitulo: 'Todas as etapas da diretoria da juventude JUMP foram concluídas com sucesso!',
+        });
       }
     } catch (err) {
       console.error('Erro ao proclamar vencedor:', err);
@@ -151,6 +155,27 @@ export const EtapasEleicaoManager: React.FC<EtapasEleicaoManagerProps> = ({
 
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl space-y-6">
+      {/* Notificação Não-Bloqueante de Sucesso / Contagem Regressiva */}
+      {mensagemSucesso && (
+        <div className="p-4 rounded-2xl bg-emerald-950/90 border border-emerald-500 flex items-start justify-between gap-4 animate-scale-up">
+          <div className="space-y-1">
+            <h3 className="text-base font-black text-emerald-300 uppercase tracking-wide">
+              {mensagemSucesso.titulo}
+            </h3>
+            <p className="text-xs text-neutral-200">
+              {mensagemSucesso.subtitulo}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMensagemSucesso(null)}
+            className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider cursor-pointer border border-neutral-700 shrink-0"
+          >
+            Entendido
+          </button>
+        </div>
+      )}
+
       {/* Topo: Explicação da Regra */}
       <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-neutral-800 gap-4">
         <div>
