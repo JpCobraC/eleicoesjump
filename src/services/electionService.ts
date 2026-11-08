@@ -132,10 +132,17 @@ export async function getConfiguracao(forceRefresh = false): Promise<Configuraca
       const { data, error } = await supabase
         .from('configuracao_eleicao')
         .select('*')
-        .single();
-      if (!error && data) {
-        config = { ...INITIAL_CONFIG, ...data };
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        config = { ...INITIAL_CONFIG, ...data[0] };
       } else {
+        if (!error && (!data || data.length === 0)) {
+          // Garante que a linha inicial exista no Supabase sem causar erro 406
+          try {
+            await supabase.from('configuracao_eleicao').upsert([INITIAL_CONFIG]);
+          } catch {}
+        }
         config = getLocal<ConfiguracaoEleicao>(STORAGE_KEYS.CONFIG, INITIAL_CONFIG);
       }
     } catch (err) {
@@ -188,16 +195,16 @@ export async function updateConfiguracao(
         ...config,
       };
 
-      // 1. Tenta atualizar com todos os campos
+      // 1. Tenta atualizar com upsert para garantir que funcione mesmo se a linha nao existir
       const { error } = await supabase
         .from('configuracao_eleicao')
-        .update(payload)
-        .eq('id', configId);
+        .upsert(payload, { onConflict: 'id' });
 
       if (error) {
         console.warn('Aviso no update completo do Supabase:', error.message);
         // 2. Fallback: tenta atualizar com os campos seguros, incluindo cargo_ativo_id e status
         const safePayload: Record<string, unknown> = {
+          id: configId,
           status: updated.status,
           updated_at: new Date().toISOString(),
         };
@@ -211,16 +218,14 @@ export async function updateConfiguracao(
 
         const { error: safeError } = await supabase
           .from('configuracao_eleicao')
-          .update(safePayload)
-          .eq('id', configId);
+          .upsert(safePayload, { onConflict: 'id' });
 
         if (safeError) {
           console.warn('Aviso no fallback de update do Supabase:', safeError.message);
           // Tenta atualizar minimamente status e cargo_ativo_id
           await supabase
             .from('configuracao_eleicao')
-            .update({ status: updated.status, updated_at: new Date().toISOString() })
-            .eq('id', configId);
+            .upsert({ id: configId, status: updated.status, updated_at: new Date().toISOString() }, { onConflict: 'id' });
         }
       }
     } catch (err) {
@@ -249,6 +254,11 @@ export async function getCargos(forceRefresh = false): Promise<Cargo[]> {
         result = data as Cargo[];
         cargosCache = { data: result, timestamp: Date.now() };
         return result;
+      } else if (!error && (!data || data.length === 0)) {
+        // Se a tabela estiver vazia no Supabase, semeia os 5 cargos oficiais
+        try {
+          await supabase.from('cargos').upsert(INITIAL_CARGOS);
+        } catch {}
       }
     } catch (err) {
       console.warn('Erro ao carregar cargos do Supabase, usando local:', err);
@@ -291,6 +301,13 @@ export async function getCandidatos(
           .order('numero', { ascending: true });
         if (!error && data && data.length > 0) {
           list = data as Candidato[];
+          candidatosCache = { data: list, timestamp: Date.now() };
+        } else if (!error && (!data || data.length === 0)) {
+          // Se a tabela estiver vazia no Supabase, semeia os candidatos iniciais
+          try {
+            await supabase.from('candidatos').upsert(INITIAL_CANDIDATOS);
+          } catch {}
+          list = INITIAL_CANDIDATOS;
           candidatosCache = { data: list, timestamp: Date.now() };
         } else {
           // Fallback seguro em caso de erro/timeout do Supabase
