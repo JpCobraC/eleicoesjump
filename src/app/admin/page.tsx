@@ -116,19 +116,22 @@ export default function AdminPage() {
     const handleUpdate = () => carregarTodosDados();
     window.addEventListener('eleicoes_jump_update', handleUpdate);
 
-    const interval = setInterval(() => {
-      if (ativo) {
-        carregarTodosDados();
-      }
-    }, 1500);
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (autenticado) {
+      interval = setInterval(() => {
+        if (ativo) {
+          carregarTodosDados();
+        }
+      }, 3000);
+    }
 
     return () => {
       ativo = false;
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
       if (bc) bc.close();
       window.removeEventListener('eleicoes_jump_update', handleUpdate);
     };
-  }, [carregarTodosDados]);
+  }, [carregarTodosDados, autenticado]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();

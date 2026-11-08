@@ -11,16 +11,18 @@ import {
   initializeLocalStorage,
 } from '@/services/electionService';
 import { CandidatosManager } from '@/components/admin/CandidatosManager';
+import { useIsMounted } from '@/hooks/useIsMounted';
 
 export default function AdminCandidatosPage() {
-  const [autenticado, setAutenticado] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('admin_auth') === 'true';
-    }
-    return false;
-  });
+  const isMounted = useIsMounted();
+  const [autenticadoManual, setAutenticadoManual] = useState(false);
   const [senhaInput, setSenhaInput] = useState('');
   const [erroLogin, setErroLogin] = useState<string | null>(null);
+
+  const autenticado =
+    isMounted &&
+    (autenticadoManual ||
+      (typeof window !== 'undefined' && sessionStorage.getItem('admin_auth') === 'true'));
 
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
@@ -71,7 +73,7 @@ export default function AdminCandidatosPage() {
       senhaInput.trim() === pinEsperado ||
       senhaInput.trim() === 'jumpelections@2026'
     ) {
-      setAutenticado(true);
+      setAutenticadoManual(true);
       setErroLogin(null);
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('admin_auth', 'true');
@@ -81,6 +83,15 @@ export default function AdminCandidatosPage() {
       setSenhaInput('');
     }
   };
+
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex flex-col justify-center items-center p-4">
+        <div className="w-10 h-10 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mb-3" />
+        <p className="text-neutral-400 font-mono text-xs uppercase tracking-widest">Carregando painel...</p>
+      </div>
+    );
+  }
 
   if (!autenticado) {
     return (

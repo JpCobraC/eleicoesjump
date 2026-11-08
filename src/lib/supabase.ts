@@ -9,7 +9,10 @@ export const isSupabaseConfigured = (): boolean => {
     supabaseAnonKey &&
     supabaseUrl.startsWith('https://') &&
     supabaseUrl.includes('.supabase.co') &&
-    supabaseAnonKey !== 'sua-chave-anonima-aqui'
+    !supabaseUrl.includes('seu-projeto') &&
+    supabaseAnonKey !== 'sua-chave-anonima-aqui' &&
+    supabaseAnonKey !== 'sua-chave-anon-publica-aqui' &&
+    supabaseAnonKey.length > 40
   );
 };
 

@@ -27,22 +27,27 @@ const STORAGE_KEYS = {
 
 export const BROADCAST_CHANNEL_NAME = 'eleicoes_jump_realtime_bus';
 
+let notifyTimeout: ReturnType<typeof setTimeout> | null = null;
+
 export function notifyRealtimeChange(tipo: string = 'GERAL') {
   if (typeof window !== 'undefined') {
-    try {
-      if ('BroadcastChannel' in window) {
-        const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
-        bc.postMessage({ type: tipo, timestamp: Date.now() });
-        bc.close();
+    if (notifyTimeout) clearTimeout(notifyTimeout);
+    notifyTimeout = setTimeout(() => {
+      try {
+        if ('BroadcastChannel' in window) {
+          const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+          bc.postMessage({ type: tipo, timestamp: Date.now() });
+          bc.close();
+        }
+        window.dispatchEvent(
+          new CustomEvent('eleicoes_jump_update', {
+            detail: { type: tipo, timestamp: Date.now() },
+          })
+        );
+      } catch {
+        // noop
       }
-      window.dispatchEvent(
-        new CustomEvent('eleicoes_jump_update', {
-          detail: { type: tipo, timestamp: Date.now() },
-        })
-      );
-    } catch {
-      // noop
-    }
+    }, 60);
   }
 }
 

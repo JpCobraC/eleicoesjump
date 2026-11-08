@@ -23,7 +23,6 @@ import {
   registrarVotosCompletos,
   verificarDispositivoJaVotou,
   getOrCreateDeviceId,
-  updateConfiguracao,
   initializeLocalStorage,
 } from '@/services/electionService';
 import { playKeyBeep, playUrnaFimSound } from '@/utils/sound';
@@ -56,23 +55,14 @@ export const MobileVotingScreen: React.FC = () => {
   const [verificandoAparelho, setVerificandoAparelho] = useState(true);
   const [tempoMobileAgora, setTempoMobileAgora] = useState<number>(0);
 
-  // Monitora contagem regressiva e auto-abertura no celular
+  // Monitora contagem regressiva no celular para atualizar o cronômetro visual
   useEffect(() => {
     if (config?.status !== 'aguardando') return;
     const interval = setInterval(() => {
-      const now = Date.now();
-      setTempoMobileAgora(now);
-      if (config.eleitos && config.eleitos.length > 0) {
-        const maisRecente = config.eleitos[config.eleitos.length - 1];
-        const decorrido = now - new Date(maisRecente.eleito_em).getTime();
-        if (decorrido >= 20000 && config.cargo_ativo_id) {
-          updateConfiguracao({ status: 'aberta' }).catch(() => {});
-          setConfig((prev) => (prev ? { ...prev, status: 'aberta' } : null));
-        }
-      }
-    }, 500);
+      setTempoMobileAgora(Date.now());
+    }, 1000);
     return () => clearInterval(interval);
-  }, [config?.status, config?.eleitos, config?.cargo_ativo_id]);
+  }, [config?.status]);
 
   const cargoAtivoId = config?.cargo_ativo_id || cargos[0]?.id;
   const cargoAtivo = useMemo(
@@ -100,17 +90,6 @@ export const MobileVotingScreen: React.FC = () => {
         const deviceId = getOrCreateDeviceId();
         const votou = await verificarDispositivoJaVotou(targetCargoId, deviceId);
         setJaVotouNesteAparelho(votou);
-      }
-
-      // Auto-avanço no celular: Se está aguardando e já passaram os 20s de celebração, abre automaticamente
-      if (cfg.status === 'aguardando' && cfg.eleitos && cfg.eleitos.length > 0) {
-        const maisRecente = cfg.eleitos[cfg.eleitos.length - 1];
-        const tempoDecorrido = Date.now() - new Date(maisRecente.eleito_em).getTime();
-        if (tempoDecorrido >= 20000 && cfg.cargo_ativo_id) {
-          updateConfiguracao({ status: 'aberta' }).catch(() => {});
-          cfg.status = 'aberta';
-          setConfig({ ...cfg });
-        }
       }
     } catch (err) {
       console.error('Erro ao sincronizar votação:', err);
