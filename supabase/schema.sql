@@ -89,8 +89,16 @@ CREATE INDEX IF NOT EXISTS idx_votos_cargo_tipo ON votos(cargo_id, tipo);
 CREATE INDEX IF NOT EXISTS idx_registro_disp ON registro_dispositivos(cargo_id, dispositivo_id, token_rodada);
 
 -- ====================================================================
--- HABILITAR ROW LEVEL SECURITY (RLS)
+-- HABILITAR ROW LEVEL SECURITY (RLS) E PERMISSÕES PÚBLICAS
 -- ====================================================================
+
+-- 1. CONCEDER PERMISSÕES AO PAPEL ANON E AUTHENTICATED
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+
+-- 2. HABILITAR RLS NAS TABELAS
 ALTER TABLE configuracao_eleicao ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cargos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE candidatos ENABLE ROW LEVEL SECURITY;
@@ -98,33 +106,33 @@ ALTER TABLE eleitores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registro_dispositivos ENABLE ROW LEVEL SECURITY;
 
--- Políticas públicas com DROP prévio para permitir reexecução idempotente sem erros
+-- 3. POLÍTICAS PERMISSIVAS COM DROP PRÉVIO
+DROP POLICY IF EXISTS "Permitir tudo em configuracao_eleicao" ON configuracao_eleicao;
 DROP POLICY IF EXISTS "Permitir leitura de configuracao para todos" ON configuracao_eleicao;
-CREATE POLICY "Permitir leitura de configuracao para todos" ON configuracao_eleicao FOR SELECT USING (true);
-
 DROP POLICY IF EXISTS "Permitir update de configuracao" ON configuracao_eleicao;
-CREATE POLICY "Permitir update de configuracao" ON configuracao_eleicao FOR ALL USING (true);
+CREATE POLICY "Permitir tudo em configuracao_eleicao" ON configuracao_eleicao FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Permitir tudo em cargos" ON cargos;
 DROP POLICY IF EXISTS "Permitir leitura de cargos para todos" ON cargos;
-CREATE POLICY "Permitir leitura de cargos para todos" ON cargos FOR SELECT USING (true);
-
 DROP POLICY IF EXISTS "Permitir gerenciamento de cargos" ON cargos;
-CREATE POLICY "Permitir gerenciamento de cargos" ON cargos FOR ALL USING (true);
+CREATE POLICY "Permitir tudo em cargos" ON cargos FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Permitir tudo em candidatos" ON candidatos;
 DROP POLICY IF EXISTS "Permitir leitura de candidatos para todos" ON candidatos;
-CREATE POLICY "Permitir leitura de candidatos para todos" ON candidatos FOR SELECT USING (true);
-
 DROP POLICY IF EXISTS "Permitir gerenciamento de candidatos" ON candidatos;
-CREATE POLICY "Permitir gerenciamento de candidatos" ON candidatos FOR ALL USING (true);
+CREATE POLICY "Permitir tudo em candidatos" ON candidatos FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Permitir tudo em eleitores" ON eleitores;
 DROP POLICY IF EXISTS "Permitir leitura e atualizacao de eleitores" ON eleitores;
-CREATE POLICY "Permitir leitura e atualizacao de eleitores" ON eleitores FOR ALL USING (true);
+CREATE POLICY "Permitir tudo em eleitores" ON eleitores FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Permitir tudo em votos" ON votos;
 DROP POLICY IF EXISTS "Permitir leitura e insercao de votos" ON votos;
-CREATE POLICY "Permitir leitura e insercao de votos" ON votos FOR ALL USING (true);
+CREATE POLICY "Permitir tudo em votos" ON votos FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Permitir tudo em registro_dispositivos" ON registro_dispositivos;
 DROP POLICY IF EXISTS "Permitir leitura e insercao de dispositivos" ON registro_dispositivos;
-CREATE POLICY "Permitir leitura e insercao de dispositivos" ON registro_dispositivos FOR ALL USING (true);
+CREATE POLICY "Permitir tudo em registro_dispositivos" ON registro_dispositivos FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 
 -- ====================================================================
 -- HABILITAR REALTIME NO SUPABASE (WEBSOCKETS PARA ATUALIZAÇÃO INSTANTÂNEA)
