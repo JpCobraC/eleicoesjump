@@ -1,4 +1,21 @@
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured, markSupabaseAuthFailed } from '@/lib/supabase';
+
+function checkAndHandleAuthError(error: unknown) {
+  if (!error) return;
+  const err = error as { code?: string; status?: number; message?: string };
+  if (
+    err.status === 401 ||
+    err.code === 'PGRST301' ||
+    err.code === '401' ||
+    (typeof err.message === 'string' &&
+      (err.message.includes('API key') ||
+        err.message.includes('JWT') ||
+        err.message.includes('Unauthorized') ||
+        err.message.includes('claim')))
+  ) {
+    markSupabaseAuthFailed();
+  }
+}
 import {
   Cargo,
   Candidato,
@@ -137,6 +154,7 @@ export async function getConfiguracao(forceRefresh = false): Promise<Configuraca
       if (!error && data && data.length > 0) {
         config = { ...INITIAL_CONFIG, ...data[0] };
       } else {
+        if (error) checkAndHandleAuthError(error);
         if (!error && (!data || data.length === 0)) {
           // Garante que a linha inicial exista no Supabase sem causar erro 406
           try {
@@ -146,6 +164,7 @@ export async function getConfiguracao(forceRefresh = false): Promise<Configuraca
         config = getLocal<ConfiguracaoEleicao>(STORAGE_KEYS.CONFIG, INITIAL_CONFIG);
       }
     } catch (err) {
+      checkAndHandleAuthError(err);
       console.warn('Erro ao carregar configuracao do Supabase, usando local:', err);
       config = getLocal<ConfiguracaoEleicao>(STORAGE_KEYS.CONFIG, INITIAL_CONFIG);
     }
@@ -201,6 +220,7 @@ export async function updateConfiguracao(
         .upsert(payload, { onConflict: 'id' });
 
       if (error) {
+        checkAndHandleAuthError(error);
         console.warn('Aviso no update completo do Supabase:', error.message);
         // 2. Fallback: tenta atualizar com os campos seguros, incluindo cargo_ativo_id e status
         const safePayload: Record<string, unknown> = {
@@ -250,6 +270,7 @@ export async function getCargos(forceRefresh = false): Promise<Cargo[]> {
         .from('cargos')
         .select('*')
         .order('ordem', { ascending: true });
+      if (error) checkAndHandleAuthError(error);
       if (!error && data && data.length > 0) {
         result = data as Cargo[];
         cargosCache = { data: result, timestamp: Date.now() };
@@ -261,6 +282,7 @@ export async function getCargos(forceRefresh = false): Promise<Cargo[]> {
         } catch {}
       }
     } catch (err) {
+      checkAndHandleAuthError(err);
       console.warn('Erro ao carregar cargos do Supabase, usando local:', err);
     }
   }
@@ -299,6 +321,7 @@ export async function getCandidatos(
           .from('candidatos')
           .select('*')
           .order('numero', { ascending: true });
+        if (error) checkAndHandleAuthError(error);
         if (!error && data && data.length > 0) {
           list = data as Candidato[];
           candidatosCache = { data: list, timestamp: Date.now() };
@@ -315,6 +338,7 @@ export async function getCandidatos(
           candidatosCache = { data: list, timestamp: Date.now() };
         }
       } catch (err) {
+        checkAndHandleAuthError(err);
         console.warn('Erro ao carregar candidatos do Supabase, usando local:', err);
         list = getLocal<Candidato[]>(STORAGE_KEYS.CANDIDATOS, INITIAL_CANDIDATOS);
         candidatosCache = { data: list, timestamp: Date.now() };
@@ -553,10 +577,12 @@ export async function verificarDispositivoJaVotou(
         .eq('cargo_id', cargoId)
         .eq('dispositivo_id', devId)
         .eq('token_rodada', tokenRodada);
+      if (error) checkAndHandleAuthError(error);
       if (!error && data && data.length > 0) {
         return true;
       }
     } catch (e) {
+      checkAndHandleAuthError(e);
       console.warn('Erro ao verificar dispositivo no Supabase:', e);
     }
   }
@@ -746,12 +772,14 @@ export async function getVotos(forceRefresh = false): Promise<Voto[]> {
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase.from('votos').select('*');
+      if (error) checkAndHandleAuthError(error);
       if (!error && data) {
         votosList = data as Voto[];
         votosCache = { data: votosList, timestamp: Date.now() };
         return votosList;
       }
     } catch (err) {
+      checkAndHandleAuthError(err);
       console.warn('Erro ao carregar votos do Supabase, usando local:', err);
     }
   }

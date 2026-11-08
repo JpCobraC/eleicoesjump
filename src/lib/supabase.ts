@@ -1,9 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim().replace(/^['"]|['"]$/g, '');
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim().replace(/^['"]|['"]$/g, '');
+
+let authBlocked = false;
+
+export const markSupabaseAuthFailed = () => {
+  if (!authBlocked) {
+    authBlocked = true;
+    console.warn(
+      'Aviso: Chave anon do Supabase retornou 401 Unauthorized (chave incorreta ou JWT expirado). O sistema continuará operando normalmente em modo local.'
+    );
+  }
+};
 
 export const isSupabaseConfigured = (): boolean => {
+  if (authBlocked) return false;
   return Boolean(
     supabaseUrl &&
     supabaseAnonKey &&
@@ -17,6 +29,11 @@ export const isSupabaseConfigured = (): boolean => {
 };
 
 export const supabase = isSupabaseConfigured()
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    })
   : null;
 
