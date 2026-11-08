@@ -46,14 +46,21 @@ export function notifyRealtimeChange(tipo: string = 'GERAL') {
   }
 }
 
-// Cache rápido em memória para evitar requisições redundantes a cada poll sub-segundo
+// Cache rápido em memória para evitar requisições redundantes ao Supabase
 let cargosCache: { data: Cargo[]; timestamp: number } | null = null;
 let candidatosCache: { data: Candidato[]; timestamp: number } | null = null;
-const CACHE_TTL_MS = 6000;
+let configCache: { data: ConfiguracaoEleicao; timestamp: number } | null = null;
+let votosCache: { data: Voto[]; timestamp: number } | null = null;
+
+const CACHE_STATIC_TTL_MS = 300000; // 5 minutos para cargos e candidatos (estáticos durante votação)
+const CACHE_CONFIG_TTL_MS = 2000;   // 2 segundos para configuração
+const CACHE_VOTOS_TTL_MS = 1500;    // 1.5 segundos para votos
 
 export function invalidateElectionCache(): void {
   cargosCache = null;
   candidatosCache = null;
+  configCache = null;
+  votosCache = null;
 }
 
 export function normalizeName(name: string): string {
@@ -108,7 +115,11 @@ export function initializeLocalStorage(): void {
 
 // ======================== CONFIGURAÇÃO ======================== //
 
-export async function getConfiguracao(): Promise<ConfiguracaoEleicao> {
+export async function getConfiguracao(forceRefresh = false): Promise<ConfiguracaoEleicao> {
+  if (!forceRefresh && configCache && Date.now() - configCache.timestamp < CACHE_CONFIG_TTL_MS) {
+    return configCache.data;
+  }
+
   let config: ConfiguracaoEleicao = INITIAL_CONFIG;
 
   if (isSupabaseConfigured() && supabase) {
@@ -119,6 +130,8 @@ export async function getConfiguracao(): Promise<ConfiguracaoEleicao> {
         .single();
       if (!error && data) {
         config = { ...INITIAL_CONFIG, ...data };
+      } else {
+        config = getLocal<ConfiguracaoEleicao>(STORAGE_KEYS.CONFIG, INITIAL_CONFIG);
       }
     } catch (err) {
       console.warn('Erro ao carregar configuracao do Supabase, usando local:', err);
@@ -129,7 +142,7 @@ export async function getConfiguracao(): Promise<ConfiguracaoEleicao> {
   }
 
   // Garante que campos novos existam
-  return {
+  const finalConfig: ConfiguracaoEleicao = {
     ...INITIAL_CONFIG,
     ...config,
     exigir_codigo_eleitor: false,
@@ -145,16 +158,21 @@ export async function getConfiguracao(): Promise<ConfiguracaoEleicao> {
     cargo_ativo_id: config.cargo_ativo_id || 'cargo-presidente',
     eleitos: config.eleitos || [],
   };
+
+  configCache = { data: finalConfig, timestamp: Date.now() };
+  return finalConfig;
 }
 
 export async function updateConfiguracao(
   config: Partial<ConfiguracaoEleicao>
 ): Promise<ConfiguracaoEleicao> {
-  const current = await getConfiguracao();
+  configCache = null;
+  const current = await getConfiguracao(true);
   const updated: ConfiguracaoEleicao = { ...current, ...config };
 
   // Atualiza imediatamente o LocalStorage para resposta instantânea
   setLocal(STORAGE_KEYS.CONFIG, updated);
+  configCache = { data: updated, timestamp: Date.now() };
 
   if (isSupabaseConfigured() && supabase) {
     try {
@@ -212,7 +230,7 @@ export async function updateConfiguracao(
 // ======================== CARGOS ======================== //
 
 export async function getCargos(forceRefresh = false): Promise<Cargo[]> {
-  if (!forceRefresh && cargosCache && Date.now() - cargosCache.timestamp < CACHE_TTL_MS) {
+  if (!forceRefresh && cargosCache && Date.now() - cargosCache.timestamp < CACHE_STATIC_TTL_MS) {
     return cargosCache.data;
   }
   let result: Cargo[];
@@ -251,10 +269,13 @@ export async function salvarCargos(cargos: Cargo[]): Promise<void> {
 
 // ======================== CANDIDATOS ======================== //
 
-export async function getCandidatos(forceRefresh = false): Promise<Candidato[]> {
+export async function getCandidatos(
+  forceRefresh = false,
+  configParam?: ConfiguracaoEleicao
+): Promise<Candidato[]> {
   let list: Candidato[] = [];
 
-  if (!forceRefresh && candidatosCache && Date.now() - candidatosCache.timestamp < CACHE_TTL_MS) {
+  if (!forceRefresh && candidatosCache && Date.now() - candidatosCache.timestamp < CACHE_STATIC_TTL_MS) {
     list = candidatosCache.data;
   } else {
     if (isSupabaseConfigured() && supabase) {
@@ -265,6 +286,10 @@ export async function getCandidatos(forceRefresh = false): Promise<Candidato[]> 
           .order('numero', { ascending: true });
         if (!error && data && data.length > 0) {
           list = data as Candidato[];
+          candidatosCache = { data: list, timestamp: Date.now() };
+        } else {
+          // Fallback seguro em caso de erro/timeout do Supabase
+          list = getLocal<Candidato[]>(STORAGE_KEYS.CANDIDATOS, INITIAL_CANDIDATOS);
           candidatosCache = { data: list, timestamp: Date.now() };
         }
       } catch (err) {
@@ -278,9 +303,9 @@ export async function getCandidatos(forceRefresh = false): Promise<Candidato[]> 
     }
   }
 
-  // Cruza com a lista de eleitos para garantir que inelegibilidade seja aplicada dinamicamente
-  const config = await getConfiguracao();
-  const eleitosNomes = (config.eleitos || []).map((e) => ({
+  // Aplica inelegibilidade sem consulta redundante ao banco
+  const cfg = configParam || configCache?.data || getLocal<ConfiguracaoEleicao>(STORAGE_KEYS.CONFIG, INITIAL_CONFIG);
+  const eleitosNomes = (cfg.eleitos || []).map((e) => ({
     norm: normalizeName(e.nome),
     cargoNome: e.cargo_nome,
   }));
@@ -648,6 +673,7 @@ export async function registrarVoto(
     }
   }
 
+  votosCache = null;
   const votos = getLocal<Voto[]>(STORAGE_KEYS.VOTOS, []);
   votos.push(novoVoto);
   setLocal(STORAGE_KEYS.VOTOS, votos);
@@ -690,22 +716,35 @@ export async function registrarVotosCompletos(
 
 // ======================== APURAÇÃO ======================== //
 
-export async function getVotos(): Promise<Voto[]> {
+export async function getVotos(forceRefresh = false): Promise<Voto[]> {
+  if (!forceRefresh && votosCache && Date.now() - votosCache.timestamp < CACHE_VOTOS_TTL_MS) {
+    return votosCache.data;
+  }
+  let votosList: Voto[] = [];
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase.from('votos').select('*');
-      if (!error && data) return data as Voto[];
+      if (!error && data) {
+        votosList = data as Voto[];
+        votosCache = { data: votosList, timestamp: Date.now() };
+        return votosList;
+      }
     } catch (err) {
       console.warn('Erro ao carregar votos do Supabase, usando local:', err);
     }
   }
-  return getLocal<Voto[]>(STORAGE_KEYS.VOTOS, []);
+  votosList = getLocal<Voto[]>(STORAGE_KEYS.VOTOS, []);
+  votosCache = { data: votosList, timestamp: Date.now() };
+  return votosList;
 }
 
-export async function getApuracao(): Promise<ApuracaoCargo[]> {
+export async function getApuracao(
+  cargosParam?: Cargo[],
+  candidatosParam?: Candidato[]
+): Promise<ApuracaoCargo[]> {
   const [cargos, candidatos, votos] = await Promise.all([
-    getCargos(),
-    getCandidatos(),
+    cargosParam ? Promise.resolve(cargosParam) : getCargos(),
+    candidatosParam ? Promise.resolve(candidatosParam) : getCandidatos(),
     getVotos(),
   ]);
 

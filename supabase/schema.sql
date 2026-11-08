@@ -83,6 +83,11 @@ CREATE TABLE IF NOT EXISTS registro_dispositivos (
   UNIQUE(cargo_id, dispositivo_id, token_rodada)
 );
 
+-- Índices de Alta Performance (Evitam statement timeout em consultas concorrentes)
+CREATE INDEX IF NOT EXISTS idx_candidatos_cargo_numero ON candidatos(cargo_id, numero);
+CREATE INDEX IF NOT EXISTS idx_votos_cargo_tipo ON votos(cargo_id, tipo);
+CREATE INDEX IF NOT EXISTS idx_registro_disp ON registro_dispositivos(cargo_id, dispositivo_id, token_rodada);
+
 -- ====================================================================
 -- HABILITAR ROW LEVEL SECURITY (RLS)
 -- ====================================================================

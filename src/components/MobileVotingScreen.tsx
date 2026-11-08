@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import confetti from 'canvas-confetti';
 import {
@@ -28,16 +28,26 @@ import {
 } from '@/services/electionService';
 import { playKeyBeep, playUrnaFimSound } from '@/utils/sound';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { useIsMounted } from '@/hooks/useIsMounted';
 
 export const MobileVotingScreen: React.FC = () => {
+  const isMounted = useIsMounted();
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
 
-  // Estado do voto selecionado
-  const [candidatoSelecionado, setCandidatoSelecionado] = useState<Candidato | null>(null);
-  const [isVotoBranco, setIsVotoBranco] = useState(false);
-  const [modalConfirmacao, setModalConfirmacao] = useState(false);
+  // Estado do voto selecionado associado ao cargo ativo
+  const [selecao, setSelecao] = useState<{
+    cargoId: string;
+    candidato: Candidato | null;
+    isBranco: boolean;
+    modal: boolean;
+  }>({
+    cargoId: '',
+    candidato: null,
+    isBranco: false,
+    modal: false,
+  });
   const [gravandoVoto, setGravandoVoto] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
@@ -70,24 +80,22 @@ export const MobileVotingScreen: React.FC = () => {
     [cargos, cargoAtivoId]
   );
 
+  const candidatoSelecionado = selecao.cargoId === cargoAtivoId ? selecao.candidato : null;
+  const isVotoBranco = selecao.cargoId === cargoAtivoId && selecao.isBranco;
+  const modalConfirmacao = selecao.cargoId === cargoAtivoId && selecao.modal;
+
   const candidatosDoCargo = useMemo(() => {
     if (!cargoAtivo) return [];
     return candidatos.filter((c) => c.cargo_id === cargoAtivo.id);
   }, [candidatos, cargoAtivo]);
 
   // Carrega dados da eleição e checa se o aparelho já votou nesta rodada
-  const sincronizar = async () => {
+  const sincronizar = useCallback(async () => {
     try {
-      const [cfg, cgs, cands] = await Promise.all([
-        getConfiguracao(),
-        getCargos(),
-        getCandidatos(),
-      ]);
+      const cfg = await getConfiguracao();
       setConfig(cfg);
-      setCargos(cgs);
-      setCandidatos(cands);
 
-      const targetCargoId = cfg.cargo_ativo_id || cgs[0]?.id;
+      const targetCargoId = cfg.cargo_ativo_id || cargos[0]?.id;
       if (targetCargoId) {
         const deviceId = getOrCreateDeviceId();
         const votou = await verificarDispositivoJaVotou(targetCargoId, deviceId);
@@ -109,7 +117,12 @@ export const MobileVotingScreen: React.FC = () => {
     } finally {
       setVerificandoAparelho(false);
     }
-  };
+  }, [cargos]);
+
+  const sincronizarRef = useRef(sincronizar);
+  useEffect(() => {
+    sincronizarRef.current = sincronizar;
+  }, [sincronizar]);
 
   useEffect(() => {
     let ativo = true;
@@ -153,7 +166,7 @@ export const MobileVotingScreen: React.FC = () => {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'configuracao_eleicao' },
           () => {
-            sincronizar();
+            sincronizarRef.current();
           }
         )
         .subscribe();
@@ -164,16 +177,16 @@ export const MobileVotingScreen: React.FC = () => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       bc = new BroadcastChannel('eleicoes_jump_realtime_bus');
       bc.onmessage = () => {
-        sincronizar();
+        sincronizarRef.current();
       };
     }
-    const handleUpdate = () => sincronizar();
+    const handleUpdate = () => sincronizarRef.current();
     window.addEventListener('eleicoes_jump_update', handleUpdate);
 
-    // 3. Polling rápido a cada 1.2 segundos para garantir sincronização
+    // 3. Polling de fallback a cada 3 segundos para garantir sincronização
     const interval = setInterval(() => {
-      sincronizar();
-    }, 1200);
+      sincronizarRef.current();
+    }, 3000);
 
     return () => {
       ativo = false;
@@ -188,29 +201,26 @@ export const MobileVotingScreen: React.FC = () => {
     };
   }, []);
 
-  // Monitora mudança de cargo ativo para limpar seleções anteriores
-  const [prevCargoAtivoId, setPrevCargoAtivoId] = useState(cargoAtivoId);
-  if (cargoAtivoId !== prevCargoAtivoId) {
-    setPrevCargoAtivoId(cargoAtivoId);
-    setCandidatoSelecionado(null);
-    setIsVotoBranco(false);
-    setModalConfirmacao(false);
-  }
-
   const handleSelecionarCandidato = (cand: Candidato) => {
     if (cand.inelegivel || jaVotouNesteAparelho) return;
     playKeyBeep(soundEnabled);
-    setCandidatoSelecionado(cand);
-    setIsVotoBranco(false);
-    setModalConfirmacao(true);
+    setSelecao({
+      cargoId: cargoAtivoId || '',
+      candidato: cand,
+      isBranco: false,
+      modal: true,
+    });
   };
 
   const handleSelecionarBranco = () => {
     if (jaVotouNesteAparelho) return;
     playKeyBeep(soundEnabled);
-    setCandidatoSelecionado(null);
-    setIsVotoBranco(true);
-    setModalConfirmacao(true);
+    setSelecao({
+      cargoId: cargoAtivoId || '',
+      candidato: null,
+      isBranco: true,
+      modal: true,
+    });
   };
 
   const handleConfirmarVoto = async () => {
@@ -248,7 +258,12 @@ export const MobileVotingScreen: React.FC = () => {
       );
 
       setJaVotouNesteAparelho(true);
-      setModalConfirmacao(false);
+      setSelecao({
+        cargoId: '',
+        candidato: null,
+        isBranco: false,
+        modal: false,
+      });
 
       // Efeitos de sucesso (Som oficial de FIM da urna e chuva de confetes)
       await playUrnaFimSound(soundEnabled);
@@ -268,6 +283,15 @@ export const MobileVotingScreen: React.FC = () => {
       setGravandoVoto(false);
     }
   };
+
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mb-3" />
+        <p className="text-neutral-400 font-mono text-xs tracking-widest uppercase">Carregando votação...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col justify-between font-sans selection:bg-emerald-500">
@@ -588,7 +612,7 @@ export const MobileVotingScreen: React.FC = () => {
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setModalConfirmacao(false)}
+                onClick={() => setSelecao((prev) => ({ ...prev, modal: false }))}
                 className="py-3 px-4 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
               >
                 Corrigir

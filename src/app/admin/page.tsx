@@ -33,16 +33,18 @@ import { BoletimUrna } from '@/components/admin/BoletimUrna';
 import { CandidatosManager } from '@/components/admin/CandidatosManager';
 import { ConfiguracoesManager } from '@/components/admin/ConfiguracoesManager';
 import { EtapasEleicaoManager } from '@/components/admin/EtapasEleicaoManager';
+import { useIsMounted } from '@/hooks/useIsMounted';
 
 export default function AdminPage() {
-  const [autenticado, setAutenticado] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('admin_auth') === 'true';
-    }
-    return false;
-  });
+  const isMounted = useIsMounted();
+  const [autenticadoManual, setAutenticadoManual] = useState(false);
   const [senhaInput, setSenhaInput] = useState('');
   const [erroLogin, setErroLogin] = useState<string | null>(null);
+
+  const autenticado =
+    isMounted &&
+    (autenticadoManual ||
+      (typeof window !== 'undefined' && sessionStorage.getItem('admin_auth') === 'true'));
 
   // Dados
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
@@ -133,7 +135,7 @@ export default function AdminPage() {
     const pinEsperado = config?.codigo_mesario || process.env.NEXT_PUBLIC_ADMIN_PIN || 'jumpelections@2026';
 
     if (senhaInput.trim() === pinEsperado || senhaInput.trim() === 'jumpelections@2026') {
-      setAutenticado(true);
+      setAutenticadoManual(true);
       setErroLogin(null);
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('admin_auth', 'true');
@@ -145,11 +147,20 @@ export default function AdminPage() {
   };
 
   const handleLogout = () => {
-    setAutenticado(false);
+    setAutenticadoManual(false);
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('admin_auth');
     }
   };
+
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex flex-col justify-center items-center p-4">
+        <div className="w-10 h-10 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mb-3" />
+        <p className="text-neutral-400 font-mono text-xs uppercase tracking-widest">Carregando painel...</p>
+      </div>
+    );
+  }
 
   // Se não estiver autenticado, exibe tela de login de mesário / admin
   if (!autenticado) {

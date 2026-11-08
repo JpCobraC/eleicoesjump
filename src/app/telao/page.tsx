@@ -30,8 +30,10 @@ import {
   initializeLocalStorage,
 } from '@/services/electionService';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { useIsMounted } from '@/hooks/useIsMounted';
 
 export default function TelaoPage() {
+  const isMounted = useIsMounted();
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [, setCandidatos] = useState<Candidato[]>([]);
@@ -256,6 +258,15 @@ export default function TelaoPage() {
 
   const eleitos = config?.eleitos || [];
   const eleitoNesteCargo = eleitos.find((e) => e.cargo_id === cargoAtivoObj?.id);
+
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-[#07090e] flex flex-col items-center justify-center p-4">
+        <div className="w-12 h-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mb-4" />
+        <p className="text-neutral-400 font-mono text-sm uppercase tracking-widest">Carregando Telão...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#07090e] text-white flex flex-col justify-between p-4 sm:p-8 font-sans select-none overflow-hidden relative">

@@ -29,8 +29,10 @@ import {
   initializeLocalStorage,
 } from '@/services/electionService';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { useIsMounted } from '@/hooks/useIsMounted';
 
 export default function ResultadosPage() {
+  const isMounted = useIsMounted();
   const [config, setConfig] = useState<ConfiguracaoEleicao | null>(null);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [, setCandidatos] = useState<Candidato[]>([]);
@@ -213,10 +215,10 @@ export default function ResultadosPage() {
     const handleLocalUpdate = () => carregarDados();
     window.addEventListener('eleicoes_jump_update', handleLocalUpdate);
 
-    // 4. Polling fallback rápido a cada 800ms
+    // 4. Polling fallback a cada 2.5s para manter apuração atualizada sem sobrecarregar o banco
     const interval = setInterval(() => {
       carregarDados();
-    }, 800);
+    }, 2500);
 
     return () => {
       clearTimeout(timerInicial);
@@ -254,6 +256,15 @@ export default function ResultadosPage() {
 
   const eleitos = config?.eleitos || [];
   const totalGeralVotos = apuracao.reduce((acc, curr) => acc + curr.totalVotos, 0);
+
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4">
+        <div className="w-12 h-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mb-4" />
+        <p className="text-neutral-400 font-mono text-sm uppercase tracking-widest">Carregando Resultados...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans select-none">
